@@ -1,0 +1,4 @@
+interface:
+  display_name: "Experience Strategy Harness"
+  short_description: "持续追踪体验目标、策略取舍与验证状态，支持多轮设计改进及恢复"
+  default_prompt: "使用 $experience-strategy-harness 在当前项目持续检查体验目标、策略与验证状态，并保存可恢复记录。"

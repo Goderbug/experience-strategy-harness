@@ -1,0 +1,17 @@
+{
+  "harness_version": "0.1.0",
+  "files": {
+    "README.md": "bb43a3cc6b0dd2b174e78075f44f13088ef226d8acd131e7002ad406a5443d3f",
+    ".gitignore": "9d61eafcbfcbaf7d275a09dca6f945200df62035ab328e91adf1c2fd5f139cc4",
+    "SKILL.md": "2514a9413a3a98a8c1f36d364f3a37ca6b7a3e6f9caf52a4d7b40ab5aa5b0abe",
+    "START-HERE.md": "1cc423785bedcd6b3c58343c03fae0da98b839d654900a7d3b8a3af5932f418e",
+    "EXPERIENCE-HARNESS.md": "0628daf70d7b0b932db1f29d18536a4c9874686458e217f6367dfbdfd5322827",
+    "VALIDATION.md": "2530363e7efa5b91713cc54bae8b5272730f12f90092eba100ff6b811c1084b3",
+    "agents/openai.yaml": "8e398576d2672c9b2cc7e0c7aa206677de17236e586efe7c9c6d05c37130cabe",
+    "references/state-protocol.md": "756e66c1b29d3a78fde818609fbfce1122e8d0af925a544616c552bd3ac0a6c0",
+    "references/experiment.md": "409586f99236465b01411398171ee27bab598c7308317dd0ceb579cc5e8a9476",
+    "templates/RETURN-REPORT.md": "e55abd146412c7fbeaf92d0afe5a79b904e22144a166bada93c4b281aa982b7e",
+    "scripts/harness.py": "0b3d8570413d9eddebc8d4031303eea4ce738dbd41f703eb732387a56a7351b1",
+    "tests/test_harness.py": "eb79b969fd318e2db34bb01053003c054058d4e1e7300b4ce64d97dec707d8c0"
+  }
+}
