@@ -1,0 +1,21 @@
+{
+  "host": "codex-cli 0.162.0-alpha.2",
+  "fixture": "temporary project; hook definitions passed as CLI inline config; no project or hook trust granted",
+  "method": "hooks/list",
+  "events": [
+    "interrupt",
+    "postToolUse",
+    "preToolUse",
+    "sessionEnd",
+    "sessionStart",
+    "stop",
+    "userPromptSubmit"
+  ],
+  "trust_statuses": [
+    "untrusted"
+  ],
+  "errors": [],
+  "hooks_executed": false,
+  "model_calls": 0,
+  "global_config_modified": false
+}

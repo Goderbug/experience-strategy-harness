@@ -1,0 +1,12 @@
+{
+  "description": "Experience strategy runtime: explicit project opt-in, persistent checks, bounded Stop continuation.",
+  "hooks": {
+    "SessionStart": [{"hooks": [{"type": "command", "command": "python3 \"${PLUGIN_ROOT}/adapters/codex/hook.py\" --adapter-id=experience-strategy-harness", "timeout": 10, "additionalContextLimit": 16000, "statusMessage": "Restoring experience strategy"}]}],
+    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "python3 \"${PLUGIN_ROOT}/adapters/codex/hook.py\" --adapter-id=experience-strategy-harness", "timeout": 10, "additionalContextLimit": 16000, "statusMessage": "Checking experience review context"}]}],
+    "PreToolUse": [{"hooks": [{"type": "command", "command": "python3 \"${PLUGIN_ROOT}/adapters/codex/hook.py\" --adapter-id=experience-strategy-harness", "timeout": 10, "additionalContextLimit": 16000, "statusMessage": "Loading experience constraints"}]}],
+    "PostToolUse": [{"hooks": [{"type": "command", "command": "python3 \"${PLUGIN_ROOT}/adapters/codex/hook.py\" --adapter-id=experience-strategy-harness", "timeout": 10, "additionalContextLimit": 16000, "statusMessage": "Checking for experience changes"}]}],
+    "Stop": [{"hooks": [{"type": "command", "command": "python3 \"${PLUGIN_ROOT}/adapters/codex/hook.py\" --adapter-id=experience-strategy-harness", "timeout": 10, "additionalContextLimit": 16000, "statusMessage": "Checking pending experience reviews"}]}],
+    "Interrupt": [{"hooks": [{"type": "command", "command": "python3 \"${PLUGIN_ROOT}/adapters/codex/hook.py\" --adapter-id=experience-strategy-harness", "timeout": 3, "statusMessage": "Recording interrupted experience review"}]}],
+    "SessionEnd": [{"hooks": [{"type": "command", "command": "python3 \"${PLUGIN_ROOT}/adapters/codex/hook.py\" --adapter-id=experience-strategy-harness", "timeout": 3, "statusMessage": "Saving experience session status"}]}]
+  }
+}

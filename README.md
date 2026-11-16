@@ -1,56 +1,78 @@
 # Experience Strategy Harness
 
-A portable, experimental harness for maintaining experience goals, design decisions, and validation across agent work sessions.
+让设计 Agent 在工作过程中持续保留体验目标、历史取舍与验证状态，并在实际改动后进行检查。
 
-体验策略 Harness：让设计 Agent 在项目推进中持续保留体验目标、关注点、历史取舍和验证状态，并在不同工作节点承担不同职责。
+**MVP 0.2.0：Codex + DeepSeek Harness 执行层。** 方法协议、持久状态和宿主生命周期接入一起提供。原有 Markdown 仍可单独使用，但单文件模式依赖 Agent 自行执行。
 
-当前版本：**MVP 0.1.0**。采用宿主 Agent 主动检查与持久记录；不包含后台监控、定时器或模型调用服务。
-
-## 直接开始
-
-- **只上传一个文件**：下载 [EXPERIENCE-HARNESS.md](https://github.com/Goderbug/experience-strategy-harness/releases/download/v0.1.0/EXPERIENCE-HARNESS.md)，连同实际项目材料交给 Agent。
-- **使用完整包**：从 [v0.1.0 Release](https://github.com/Goderbug/experience-strategy-harness/releases/tag/v0.1.0) 下载 ZIP，解压后读取 [START-HERE.md](START-HERE.md) 和 [SKILL.md](SKILL.md)。
-- **从源码使用**：克隆仓库，将整个目录交给支持文件工具的 Agent；Python 状态工具只依赖标准库，要求 Python 3.9+。
+## 开始
 
 ```sh
 git clone https://github.com/Goderbug/experience-strategy-harness.git
+cd experience-strategy-harness
 ```
 
-将下面的指令和项目材料发给 Agent：
+选择实际使用的宿主：
 
-> 请读取这个包里的 SKILL.md，在当前项目启用 experience-strategy-harness。沿用我已明确授权的范围，在 intake、before-change、after-change、feedback、resume、handoff 节点主动检查体验，保留目标、稳定问题 ID、历史取舍、证据和验证状态。先处理当前真实材料，不要虚构多轮实验或用户反馈。实验结束时按 templates/RETURN-REPORT.md 输出报告，并保留状态和检查记录。
+- **Codex**：[安装与信任 hooks](adapters/codex/README.md)。提供原生插件清单和项目级 hooks 安装器。
+- **DeepSeek Harness / dsh**：[安装原生插件](adapters/deepseek/README.md)。接入原生 Agent 循环，复用宿主模型和工具，不另建 DeepSeek API 调用器。
+- **其他 Agent / 只上传文档**：[START-HERE.md](START-HERE.md) 与 [EXPERIENCE-HARNESS.md](EXPERIENCE-HARNESS.md)。这是手动触发的可移植降级模式。
 
-只有单文件时，将上面的 SKILL.md 换成 EXPERIENCE-HARNESS.md。支持 Skills 的宿主可使用本目录；其他宿主直接读取 Markdown 即可，无需专用插件或 API Key。
+最新完整包见 [v0.2.0 Release](https://github.com/Goderbug/experience-strategy-harness/releases/tag/v0.2.0)。Python 核心只依赖标准库，要求 Python 3.9+；DSH 插件的宿主版本要求见适配器文档。
 
-## 核心机制
+## 执行层如何工作
 
-| 节点 | 职责 |
+```mermaid
+flowchart LR
+  A[宿主会话与工具事件] --> B[恢复目标与取舍]
+  B --> C[检测观察范围内的文件版本]
+  C --> D[持久记录待检事项]
+  D --> E[将检查任务注入当前 Agent]
+  E --> F[Agent 观察并提交体验判断]
+  F --> G[核验版本与提交回执]
+  G --> H[清除对应待检事件]
+  D --> I[结束前有限补检]
+  I --> E
+```
+
+| 环节 | 本版行为 |
 |---|---|
-| intake | 建立当前任务、目标、情境和初始关注 |
-| before-change | 判断改动影响，将相关体验约束带入任务 |
-| after-change | 查看实际产物、残留问题和验证缺口 |
-| feedback | 更新假设与策略，保留采纳、拒绝和修改理由 |
-| resume | 恢复目标、未决项与历史取舍，核对证据版本 |
-| handoff | 交接状态、限制、下一行动及触发条件 |
+| 会话开始 / 恢复 | 读回目标、未决问题和最近取舍；保留上次遗漏 |
+| 本轮任务开始 | 注入体验关注，登记本轮影响判断 |
+| 工具执行前 | 带入当前约束；这是提示，不是写入前强制审批 |
+| 工具执行后 / 结束前 | 对配置范围做内容快照，识别新增、修改、删除 |
+| 结束前仍有待检 | 默认最多续跑一次；不会无限自我审查 |
+| 判断提交 | 检查对应事件、内容快照和状态版本后确认，旧回执不能清掉新变化 |
+| 中断 / 失败 | 保留待检；下次恢复，不将中断写成通过 |
 
-每次按影响选择 none / focused / full；允许维持原状。实现完成和体验验证分别记录，已解决问题可以因新证据重开。
+适配器负责**何时介入及是否留下记录**，宿主 Agent 负责**观察、分析、策略与验证**。验证器能检查结构和版本，不能证明判断质量或证据真实性。通过 `depth: none` 可以有理由地跳过无关变化，避免每次改动都生成建议。
 
-## 状态与恢复
+## 启用一个项目
 
-Python 模式使用 `scripts/harness.py` 的 `init`、`context`、`commit`、`validate`、`export`，将状态保存到目标项目的 `.experience-strategy/`。具体参数和可执行示例见 [状态协议](references/state-protocol.md)。脚本提供版本冲突检查、幂等提交、状态校验和导出。
-
-无 Python 时使用单文件入口中的 portable 格式；无文件工具时交接完整聊天状态。新会话仍须重新激活并带回状态。两种状态格式不可直接互换。
-
-## 做一次真实实验
-
-按 [实验指南](references/experiment.md) 选择一个实际用户旅程，随真实变化多轮推进。执行者单独记录事件清单，以发现漏触发和人工提醒，不能只根据 Agent 自己生成的日志判断覆盖率。
-
-结束后填写 [RETURN-REPORT.md](templates/RETURN-REPORT.md)，带回状态、检查记录及必要产物。区分 Agent 行为、工程结果、真实用户观察和受控模拟；没有对照时不声称因果提升。
-
-## 检查
+先在现有目标项目建立体验目标，再明确文件观察范围：
 
 ```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
+python3 scripts/harness.py init --root /path/to/project \
+  --project-id pilot-01 --goal '让用户可靠完成核心任务' \
+  --scope '当前授权的旅程与页面' --version baseline --mode analysis-only
+python3 scripts/runtime.py setup --root /path/to/project \
+  --watch 'src/**' --watch 'public/**' --max-continuations 1
+python3 scripts/runtime.py context --root /path/to/project
 ```
 
-16 项脚本合约测试已通过。公开包附 [验证记录](VALIDATION.md)，说明工程检查和同宿主受控演练的范围；这些不证明跨宿主持续运行或真实用户体验改善。
+将路径、目标和 watch 范围换成真实项目，再按对应宿主文档安装。运行时仅在明确 setup 的项目生效；安装插件本身不会对所有项目开启检查。真实反馈仍需要提供给 Agent；只读取文件快照无法知道用户遇到的全部体验问题。
+
+## 状态与边界
+
+- `.experience-strategy/state.json`：目标、问题、证据、取舍与检查历史。保留 v0.1 状态协议兼容性。
+- `.experience-strategy/runtime.sqlite3`：执行状态、待检事件、续跑预算和确认回执。
+- `scripts/runtime.py context`：查看执行状态与可提交的 checkpoint 模板。
+- [运行协议](references/runtime-protocol.md)：触发、确认、恢复与观察范围。
+- [分析状态协议](references/state-protocol.md)：证据类型、问题状态与持久化规则。
+
+这里的“持续”是**宿主运行期间的事件驱动介入，加上跨会话恢复**。宿主退出后没有后台轮询，也不会自动启动 Codex 或 dsh。分析状态中的 `online:false` 保留其原义：未配置独立后台观察器，不能用它判断 hooks 是否安装成功。
+
+## 验证和外测
+
+[VALIDATION.md](VALIDATION.md) 分开记录核心合约、适配器测试、真实宿主接入测试和未完成的真实模型实验。工程测试通过不等于体验效果提升。
+
+请按 [实验指南](references/experiment.md) 跑一个真实项目，回传 [RETURN-REPORT.md](templates/RETURN-REPORT.md)。重点比较：漏检是否减少、旧决定是否被保留、策略是否改变实际产物、增加了多少负担。独立事件清单仍然必要，不能用 harness 自己生成的记录充当完整覆盖分母。

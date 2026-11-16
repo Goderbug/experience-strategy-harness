@@ -5,7 +5,7 @@ description: Maintain experience goals, concerns, and optimization strategies ac
 
 # Experience Strategy Harness
 
-Version: 0.1.0 · experimental MVP · provider-neutral · host checkpoint execution.
+Version: 0.2.0 · experimental MVP · native Codex / DeepSeek Harness lifecycle adapters plus portable fallback.
 
 你在当前项目中持续承担体验策略职责：理解使用情境，保留体验目标，识别受影响的旅程，提出有依据的改进或探索策略，并追踪结果。项目的实际用户请求优先。策略报告是阶段输出，持续维护的目标、问题、决定和证据是后续工作的依据。
 
@@ -16,11 +16,13 @@ Version: 0.1.0 · experimental MVP · provider-neutral · host checkpoint execut
 向用户简短说明：本轮节点、当前体验关注点、可观察材料、执行范围、恢复方式。记录以下运行事实：
 
 - **观察范围**：实际能读到的设计、源码、运行界面、用户反馈；未接入的数据不在覆盖范围内。
-- **调用方式**：由宿主 Agent 在下面的节点主动调用；本包没有定时器、守护进程、模型 API 或自动唤醒器。
+- **调用方式**：配置执行层时，由 Codex hooks 或 DSH 原生事件注入待检任务；其他宿主自行识别节点。本包没有定时器、守护进程或自动唤醒器，复用宿主的模型与工具。
 - **持续范围**：已激活项目的当前工作期间。新会话通过本文件和项目状态恢复；不宣称宿主退出后仍在检查。
 - **持久化**：能写文件并运行 Python 时用 `scripts/harness.py`；否则使用 [单文件入口](EXPERIENCE-HARNESS.md) 的 portable 状态格式，保存到独立目录或会话接力块。两种格式不可直接互换；会话接力不能证明跨会话可靠性。
 
-文件运行先读 [状态协议](references/state-protocol.md)，初始化或读取项目的 `.experience-strategy/state.json`。已有状态优先恢复，禁止重新初始化覆盖。单写入者更新；其他 Agent 的意见作为输入合并。
+文件运行先读 [状态协议](references/state-protocol.md)，初始化或读取项目的 `.experience-strategy/state.json`。已有状态优先恢复，禁止重新初始化覆盖。并发更新必须通过工具的版本校验；其他 Agent 的意见作为输入合并。
+
+若存在执行层配置，先调用 `scripts/runtime.py context --root <项目>`。按其返回的 `pending_ids`、`snapshot`、`required_node` 和 `checkpoint_template` 完成判断，经 `runtime.py checkpoint --root <项目>` 从 stdin 提交；不要用底层 `harness.py commit` 代替确认。内容快照或 revision 过期时重新读取并判断，不要仅替换版本字段。使用 DSH 时原生 `experience_context` / `experience_checkpoint` 工具提供同样操作。读取 [运行协议](references/runtime-protocol.md) 了解有界补检和中断恢复。
 
 ## 宿主应调用的节点
 
@@ -75,4 +77,4 @@ Version: 0.1.0 · experimental MVP · provider-neutral · host checkpoint execut
 
 记录写入失败时保留待写内容，报告失败，不假称状态已保存。版本冲突先读最新状态并重新判断；不直接改成新 revision 覆盖。改变目标要保存变更来源，防止旧策略在下一轮被无条件复活。
 
-本包不要求特定模型、外部服务、设计风格或其他 Skill。需要实机操作时使用宿主实际提供的工具。若宿主提供生命周期 hooks，可映射到上述节点；必须实际配置并验证后才声称已自动接入。
+本包不要求特定模型、外部服务、设计风格或其他 Skill。需要实机操作时使用宿主实际提供的工具。Codex 与 DeepSeek Harness 的具体安装见 [Codex 适配器](adapters/codex/README.md) 和 [DSH 适配器](adapters/deepseek/README.md)。只有宿主已加载、必要的信任审核已通过、目标项目已 setup 后才声称自动接入；不能把包已下载当成运行成功。

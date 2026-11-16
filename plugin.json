@@ -1,0 +1,11 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "experience-strategy-harness",
+  "version": "0.2.0",
+  "description": "Persist experience strategy and request bounded reviews through native Codex lifecycle hooks in opted-in projects.",
+  "extensions": {
+    "com.openai": {
+      "hooks": "./hooks/hooks.json"
+    }
+  }
+}

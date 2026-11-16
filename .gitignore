@@ -4,3 +4,6 @@ __pycache__/
 .experience-strategy/
 .experience-strategy-portable/
 dist/
+node_modules/
+*.tgz
+adapters/deepseek/runtime/

@@ -1,0 +1,8 @@
+{
+  "ok": true,
+  "test": "installed-tarball-official-loader-native-loop",
+  "dsh": "0.2.2-rc.3",
+  "model": "deterministic-fixture",
+  "model_steps": 2,
+  "pending_preserved": true
+}

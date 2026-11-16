@@ -1,0 +1,18 @@
+{
+  "date": "2026-11-16",
+  "classification": "engineering-validation",
+  "python": "3.9.6",
+  "node": "24.22.1",
+  "state_tests": 16,
+  "runtime_tests": 21,
+  "codex_adapter_tests": 19,
+  "deepseek_native_loop_tests": 7,
+  "automatic_tests_passed": 63,
+  "real_model_calls": 0,
+  "real_user_outcome_tests": 0,
+  "limitations": [
+    "Codex hook trust and live model loop require user-side acceptance",
+    "DSH uses official framework with deterministic model and fixed working-directory service",
+    "No measured UX or cost improvement"
+  ]
+}
