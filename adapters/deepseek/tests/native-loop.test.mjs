@@ -252,3 +252,48 @@ test('a slow interrupt recorder cannot hold user cancellation for the configured
     assert.equal(cli(runtimePath, ['context', '--root', root]).review_required, true);
   } finally { await cleanup(h, root); }
 });
+
+test('one native session reads the current role brief, hands off to Critic, and can stop without running Critic', async () => {
+  const root = await project(); let h;
+  try {
+    const engine = join(sourceRoot, 'scripts', 'engine.py');
+    const opened = cli(engine, ['open', '--root', root], {
+      case_id: 'native-case', goal: 'Let a reader save an item without searching.',
+      claim: 'A contextual save action is sufficient in this fixture.',
+      claim_type: 'behavior', route: 'tradeoff', mode: 'fixture',
+    });
+    h = await host(root, [
+      async options => {
+        assert.match(JSON.stringify(options), /Design roles/);
+        assert.match(JSON.stringify(options), /native-case/);
+        return toolResponse('role-read', 'experience_roles', { case_id: 'native-case' });
+      },
+      async options => {
+        // Contract/brief was read via the actual registered tool, not a model mock of the tool.
+        assert.match(JSON.stringify(options), /reopen_if/);
+        return toolResponse('role-write', 'experience_role_submit', {
+          case_id: 'native-case', binding: opened.binding, expected_revision: opened.revision,
+          request_id: 'native-handoff', role: 'strategist',
+          output: {
+            intent: 'Keep the reading surface legible while retaining quick save.',
+            options: ['Always show a save control', 'Reveal it on focus or hover'],
+            proposal: 'Reveal it on focus or hover',
+            assumption: 'Readers who intend to save will discover the control.',
+            reopen_if: 'Reconsider if an unprompted reader cannot save an item.',
+          },
+        });
+      },
+      async () => {
+        const state = cli(engine, ['context', '--root', root, '--case-id', 'native-case']);
+        assert.equal(state.next_role, 'critic');
+        // A role handoff did not implicitly clear the regular runtime checkpoint.
+        return toolResponse('normal-review', 'experience_checkpoint', filledCheckpoint(root));
+      },
+      async () => textResponse('A single role completed; next role stays saved.'),
+    ]);
+    await run(h.agent);
+    assert.equal(h.provider.requests.length, 4, 'active Critic must not trigger another stop continuation');
+    assert.equal(cli(engine, ['context', '--root', root, '--case-id', 'native-case']).next_role, 'critic');
+    assert.equal(cli(runtimePath, ['context', '--root', root]).review_required, false);
+  } finally { await cleanup(h, root); }
+});

@@ -18,7 +18,7 @@ const patch = parse(await readFile(join(packageRoot, manifest.dsh.bundle.patch),
 assert.equal(patch.length, 1);
 const [row] = patch[0].insert;
 assert.equal(row.name, manifest.name);
-for (const path of ['scripts/runtime.py', 'scripts/harness.py', 'SKILL.md', 'references/state-protocol.md', 'references/runtime-protocol.md']) {
+for (const path of ['scripts/runtime.py', 'scripts/harness.py', 'scripts/engine.py', 'scripts/role_policy.py', 'scripts/engine_demo.py', 'SKILL.md', 'references/state-protocol.md', 'references/runtime-protocol.md']) {
   assert.ok((await readFile(join(packageRoot, path))).length > 0, `${path} must be packaged`);
 }
 const { Context } = await load('@deepseek-ai/cordis');
@@ -34,8 +34,8 @@ const { default: AgentLoop } = await load('@deepseek-ai/dsh-agent-loop');
 const root = await mkdtemp(join(tmpdir(), 'experience-dsh-package-'));
 const ctx = new Context();
 let handle;
-function cli(name, args) {
-  const result = spawnSync(process.env.PYTHON ?? 'python3', [join(packageRoot, 'scripts', name), ...args], { encoding: 'utf8' });
+function cli(name, args, input) {
+  const result = spawnSync(process.env.PYTHON ?? 'python3', [join(packageRoot, 'scripts', name), ...args], { encoding: 'utf8', input: input === undefined ? undefined : JSON.stringify(input) });
   assert.equal(result.status, 0, result.stderr + result.stdout);
   return JSON.parse(result.stdout);
 }
@@ -44,6 +44,11 @@ try {
   await writeFile(join(root, 'src', 'fixture.txt'), 'Packaged runtime fixture.');
   cli('harness.py', ['init', '--root', root, '--project-id', 'package-smoke', '--goal', 'Exercise installed bundle', '--scope', 'Synthetic fixture', '--version', 'v1']);
   cli('runtime.py', ['setup', '--root', root, '--watch', 'src/**']);
+  const roleCase = cli('engine.py', ['open', '--root', root], {
+    case_id: 'package-case', goal: 'Verify the shipped case engine', claim: 'Fixture contains marker.',
+    claim_type: 'artifact', route: 'direct', mode: 'fixture',
+  });
+  assert.equal(roleCase.next_role, 'verifier');
   for (const service of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, NativeToolExecutor, AgentRegistry]) await ctx.plugin(service);
   await ctx.plugin(AgentLoop, { agents: [] });
   ctx.provide('workingDirectory', { get: () => root });
@@ -57,6 +62,9 @@ try {
       this.calls++;
       assert.ok(this.calls <= 2, 'installed plugin must not cause an unbounded loop');
       assert.match(JSON.stringify(options), /experience_checkpoint/);
+      assert.match(JSON.stringify(options), /experience_roles/);
+      assert.match(JSON.stringify(options), /package-case/);
+      assert.match(JSON.stringify(options), /next: verifier/);
       yield { type: 'block-start', index: 0, blockType: 'text' };
       yield { type: 'text-delta', index: 0, text: 'Fixture intentionally leaves review pending.' };
       yield { type: 'block-end', index: 0, block: { type: 'text', text: 'Fixture intentionally leaves review pending.' } };
@@ -70,7 +78,7 @@ try {
   await handle.agent.whenIdle();
   assert.equal(provider.calls, 2, 'tarball-loaded hook must force exactly one additional real host step');
   assert.equal(cli('runtime.py', ['context', '--root', root]).review_required, true);
-  console.log(JSON.stringify({ ok: true, test: 'installed-tarball-official-loader-native-loop', dsh: '0.2.2-rc.3', model: 'deterministic-fixture', model_steps: provider.calls, pending_preserved: true }));
+  console.log(JSON.stringify({ ok: true, test: 'installed-tarball-official-loader-native-loop', dsh: '0.2.2-rc.3', model: 'deterministic-fixture', model_steps: provider.calls, pending_preserved: true, role_discovered: true }));
 } finally {
   await handle?.dispose();
   await ctx.fiber.dispose();

@@ -8,7 +8,7 @@ import shutil
 import subprocess
 import zipfile
 
-VERSION = "0.2.0"
+VERSION = "0.3.0-alpha.1"
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -38,7 +38,7 @@ def main():
     prefix = "experience-strategy-harness/"
     with zipfile.ZipFile(archive, "x", compression=zipfile.ZIP_DEFLATED) as handle:
         for name, data in sorted(files):
-            info = zipfile.ZipInfo(prefix + name, (2026, 11, 16, 0, 0, 0))
+            info = zipfile.ZipInfo(prefix + name, (2026, 11, 17, 0, 0, 0))
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = 0o100644 << 16
             handle.writestr(info, data)

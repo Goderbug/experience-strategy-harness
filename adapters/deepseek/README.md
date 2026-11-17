@@ -20,7 +20,7 @@ dsh web
 也可直接安装发布的独立 tarball；它内含运行脚本和方法文件，不依赖原仓库位置：
 
 ```sh
-dsh plugin --profile web add ./dsh-experience-strategy-harness-0.2.0.tgz
+dsh plugin --profile web add ./dsh-experience-strategy-harness-0.3.0-alpha.1.tgz
 ```
 
 该安装会在指定 profile 启用代码。项目还需要明确选择监测范围。以下命令从本仓库根目录运行，将路径与目标替换为实际项目；已有策略状态时跳过 `init`：
@@ -84,3 +84,12 @@ npm test
 覆盖：停止时实际产生额外模型步骤；checkpoint 工具完成后结束；模型忽略后的有界结束；新宿主继续未决检查；原生工具修改真实临时文件后触发复查；未启用项目无影响；核心失败可见；用户取消不会被续跑覆盖。测试证明宿主事件接线与恢复机制，不证明模型判断质量或产品体验改善。
 
 发布包另有安装验收脚本：先将 tarball 安装到带有上述测试依赖的隔离目录，再运行 `node tests/package-smoke.mjs /absolute/path/to/node_modules/dsh-experience-strategy-harness`。它从包的 `dsh.bundle.patch` 读取实际行，经官方 Cordis Loader 加载，使用包内 Python 脚本走真实 AgentLoop，并确认只补跑一次且未决检查仍被保存；不依赖源仓库的运行脚本。
+
+## 原型：设计角色交接
+
+在正常 `harness.py init` 和 `runtime.py setup` 完成后，用 `python3 scripts/engine.py open --root PROJECT --input case.json` 在目标项目开启个案（根须与 DSH 会话工作目录一致）。未创建个案数据库的项目只显示原来的体验检查工具。已开启个案时，多两个原生工具：
+
+- `experience_roles({})` 只读列表；传 `{"case_id":"…"}` 读取当前角色、绑定标识、版本、历史、角色卡与输出模板。
+- `experience_role_submit({case_id,binding,expected_revision,request_id,role,output})` 提交当前角色一份输出。根目录仅取自当前 DSH 会话，不由模型指定。它不会替普通 checkpoint 签收，更不等于采集到真人数据或授权设计上线。
+
+已保存的角色进度会在下一次正常步骤/会话带回；等待真人时不会自动安排模型续跑。角色是同一宿主可执行的不同职责，不等同多个独立人员。打开个案与得到新证据后的显式恢复走随包的 engine CLI。常规待检与角色进度可同时出现，应分别判断。

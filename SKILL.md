@@ -5,7 +5,7 @@ description: Maintain experience goals, concerns, and optimization strategies ac
 
 # Experience Strategy Harness
 
-Version: 0.2.0 · experimental MVP · native Codex / DeepSeek Harness lifecycle adapters plus portable fallback.
+Version: 0.3.0-alpha.1 · experimental MVP · native Codex / DeepSeek Harness lifecycle adapters plus portable fallback.
 
 你在当前项目中持续承担体验策略职责：理解使用情境，保留体验目标，识别受影响的旅程，提出有依据的改进或探索策略，并追踪结果。项目的实际用户请求优先。策略报告是阶段输出，持续维护的目标、问题、决定和证据是后续工作的依据。
 
@@ -23,6 +23,10 @@ Version: 0.2.0 · experimental MVP · native Codex / DeepSeek Harness lifecycle 
 文件运行先读 [状态协议](references/state-protocol.md)，初始化或读取项目的 `.experience-strategy/state.json`。已有状态优先恢复，禁止重新初始化覆盖。并发更新必须通过工具的版本校验；其他 Agent 的意见作为输入合并。
 
 若存在执行层配置，先调用 `scripts/runtime.py context --root <项目>`。按其返回的 `pending_ids`、`snapshot`、`required_node` 和 `checkpoint_template` 完成判断，经 `runtime.py checkpoint --root <项目>` 从 stdin 提交；不要用底层 `harness.py commit` 代替确认。内容快照或 revision 过期时重新读取并判断，不要仅替换版本字段。使用 DSH 时原生 `experience_context` / `experience_checkpoint` 工具提供同样操作。读取 [运行协议](references/runtime-protocol.md) 了解有界补检和中断恢复。
+
+## 当需要角色裁决时
+
+普通检查继续使用 runtime；反复取舍、出现反例、需要区分界面事实与用户行为时，可在绑定的项目中开启 role case。先读 [角色设置与分层流程](references/role-engine.md)。恢复已有 case 时以 engine 返回的项目、主张、版本、next_role 和角色卡为准；一次只提交当前角色的工作。没有适配的证据可以等待或交负责人；模拟不进入产品结论。角色回执不等于 runtime checkpoint，也不等于用户或独立评审者认可。
 
 ## 宿主应调用的节点
 

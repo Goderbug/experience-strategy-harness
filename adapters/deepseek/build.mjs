@@ -3,8 +3,9 @@ import { fileURLToPath } from 'node:url';
 
 // A release tarball carries the Python runtime; it never depends on a sibling checkout.
 const destination = new URL('./scripts/', import.meta.url);
+const { version } = JSON.parse(await readFile(new URL('./package.json', import.meta.url), 'utf8'));
 await mkdir(destination, { recursive: true });
-for (const name of ['runtime.py', 'harness.py']) {
+for (const name of ['runtime.py', 'harness.py', 'engine.py', 'role_policy.py', 'engine_demo.py']) {
   await copyFile(new URL(`../../scripts/${name}`, import.meta.url), new URL(name, destination));
 }
 for (const directory of ['references', 'templates']) {
@@ -17,7 +18,7 @@ for (const file of ['SKILL.md', 'EXPERIENCE-HARNESS.md']) {
   const text = await readFile(new URL(`../../${file}`, import.meta.url), 'utf8');
   // In this smaller DSH package adapter docs live in the repository; the method
   // and state protocol themselves keep their original local paths.
-  const portable = text.replaceAll('(adapters/codex/README.md)', '(https://github.com/Goderbug/experience-strategy-harness/tree/v0.2.0/adapters/codex)')
+  const portable = text.replaceAll('(adapters/codex/README.md)', `(https://github.com/Goderbug/experience-strategy-harness/tree/v${version}/adapters/codex)`)
     .replaceAll('(adapters/deepseek/README.md)', '(README.md)');
   await writeFile(new URL(`./${file}`, import.meta.url), portable);
 }

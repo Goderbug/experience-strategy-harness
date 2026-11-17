@@ -1,0 +1,56 @@
+{
+  "package_version": "0.3.0-alpha.1",
+  "date": "2026-11-17",
+  "platform": "macOS",
+  "automatic_tests": {
+    "core": 58,
+    "codex_adapter": 21,
+    "deepseek_native_framework": 8,
+    "total_passed": 87,
+    "total_failed": 0
+  },
+  "dsh_package_smoke": {
+    "ok": true,
+    "test": "installed-tarball-official-loader-native-loop",
+    "dsh": "0.2.2-rc.3",
+    "model": "deterministic-fixture",
+    "model_steps": 2,
+    "pending_preserved": true,
+    "role_discovered": true
+  },
+  "packaged_demo": {
+    "source": "shipped tarball",
+    "mode": "fixture",
+    "cases": {
+      "card-supports": [
+        "keep"
+      ],
+      "card-refutes": [
+        "revise"
+      ],
+      "card-screen": [
+        "defer",
+        "resume",
+        "revise"
+      ],
+      "element-present": [
+        "verifier only"
+      ]
+    }
+  },
+  "field_trial": {
+    "host": "one Codex agent submitting via CLI",
+    "independent_reviewers": 0,
+    "human_tasks": 0,
+    "material": "real local reading-list screenshots, code and prior concern",
+    "phase": "waiting_evidence",
+    "last_judgment": "defer",
+    "final_revision": 4
+  },
+  "unmeasured": [
+    "trusted Codex hooks running a live model turn",
+    "online DeepSeek model on an external project",
+    "user outcomes and comparative design decision quality",
+    "time and token cost versus ordinary review"
+  ]
+}

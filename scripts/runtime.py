@@ -233,6 +233,46 @@ def trim(value, limit=900):
     return text if len(text) <= limit else text[:limit] + "… [truncated; inspect full state]"
 
 
+def discover_roles(root, current_snap):
+    """Optional advisory discovery. Never create or advance a case in a lifecycle hook."""
+    path = root / ".experience-strategy" / "engine.sqlite3"
+    if not path.exists() and not path.is_symlink():
+        return None, []
+    try:
+        import engine
+        from role_policy import ROLE_CARDS
+        data = engine.summary_if_enabled(root)
+        cases = data["cases"]
+        if not cases:
+            return None, []
+        script = shlex.quote(str(Path(__file__).with_name("engine.py").resolve()))
+        prefix = "python3 " + script + " context --root " + shlex.quote(str(root))
+        lines = ["Design roles (durable case records; no automatic role execution). Project root: " + str(root)]
+        for case in cases[:4]:
+            status = ("snapshot changed; inspect case before submitting" if case["snapshot"] != current_snap
+                      else "next: " + str(case["next_role"]) if case["next_role"] else "no active role")
+            lines.append(harness.canonical({"case_id": case["case_id"], "revision": case["revision"],
+                                            "mode": case["mode"], "phase": case["phase"], "status": status,
+                                            "claim": trim(case["claim"], 180),
+                                            **{key: case[key] for key in ("outcome","next_trigger") if key in case}}))
+        current = cases[0]
+        if current["next_role"] and current["snapshot"] == current_snap:
+            card = ROLE_CARDS[current["next_role"]]
+            lines.append("Current role brief (" + current["case_id"] + "): " + card["question"] + " " + card["limits"])
+        lines.extend(["Read the applicable case's role brief, permitted output, identifiers and history before acting: "
+                      + prefix + " --case-id " + shlex.quote(cases[0]["case_id"])
+                      + " (choose the relevant ID; omit --case-id to list cases).",
+                      "Only submit work within the user's task. A role handoff never acknowledges a runtime checkpoint, "
+                      "resolves a strategy concern, or requests another model turn. Waiting for evidence or an owner is a valid stopping point."])
+        return data, lines
+    except Exception as exc:
+        # Observe-only integration: role storage failure must not roll back a normal checkpoint.
+        code = getattr(exc, "code", type(exc).__name__)
+        return {"enabled": True, "error": str(code)}, [
+            "Design role state unavailable (" + str(code) + "); use engine.py context to diagnose. "
+            "Role coverage is unknown; regular runtime checkpoints remain available."]
+
+
 def result(database, root, state_path, snap, block=False, warning=None):
     state = harness.load(state_path)
     set_meta(database, "strategy_revision", state["revision"])
@@ -290,13 +330,20 @@ def result(database, root, state_path, snap, block=False, warning=None):
         warning = (warning + " " + empty_warning) if warning else empty_warning
     if warning:
         lines.append("Runtime warning: " + warning)
-    context_key = harness.digest({"snapshot": snap, "revision": state["revision"], "pending_ids": pending_ids,
-                                  "pending_count": len(pending), "warning": warning, "config": config})
+    roles, role_lines = discover_roles(root, snap)
+    lines.extend(role_lines)
+    basis = {"snapshot": snap, "revision": state["revision"], "pending_ids": pending_ids,
+             "pending_count": len(pending), "warning": warning, "config": config}
+    if roles:
+        basis["roles"] = roles
+    context_key = harness.digest(basis)
     output = {"ok": True, "enabled": True, "context": "\n".join(lines), "context_key": context_key, "review_required": bool(pending),
               "block_stop": bool(block), "pending_ids": pending_ids, "pending_count": len(pending),
               "snapshot": snap, "revision": state["revision"], "required_node": required_node,
               "checkpoint_template": template, "pending": [{key: row[key] for key in ("id", "node", "snapshot", "host", "session_id", "turn_id", "created_at")} for row in batch],
               "runtime_version": RUNTIME_VERSION, "background_monitoring": False, "watch": config["watch"]}
+    if roles:
+        output["roles"] = roles
     if warning:
         output["warning"] = warning
     return output

@@ -1,6 +1,6 @@
 import { execFile, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { join, isAbsolute } from 'node:path';
+import { join, dirname, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { createUserMessage } from '@deepseek-ai/dsh-llm';
@@ -8,7 +8,7 @@ import { createUserMessage } from '@deepseek-ai/dsh-llm';
 export const name = 'experience-strategy-harness';
 export const inject = ['agents', 'tools', 'workingDirectory'];
 
-const OWN_TOOLS = new Set(['experience_context', 'experience_checkpoint']);
+const OWN_TOOLS = new Set(['experience_context', 'experience_checkpoint', 'experience_roles', 'experience_role_submit']);
 const MAX_BUFFER = 4 * 1024 * 1024;
 
 function parseResult(stdout, stderr, status) {
@@ -42,9 +42,17 @@ function makeRuntime(config) {
     return parseResult(result.stdout, result.stderr, result.status);
   }
   async function run(command, root, input, signal) {
+    return runArgv(args(command, root), input, signal);
+  }
+  async function roleRun(command, root, input, signal, caseId) {
+    const argv = [join(dirname(runtime), 'engine.py'), command, '--root', root];
+    if (caseId !== undefined) argv.push(`--case-id=${caseId}`);
+    return runArgv(argv, input, signal);
+  }
+  async function runArgv(argv, input, signal) {
     if (signal?.aborted) throw signal.reason ?? new Error('Aborted');
     return new Promise((resolve, reject) => {
-      const child = execFile(python, args(command, root), {
+      const child = execFile(python, argv, {
         encoding: 'utf8', timeout, maxBuffer: MAX_BUFFER, windowsHide: true,
         ...(signal ? { signal } : {}),
       }, (error, stdout, stderr) => {
@@ -56,7 +64,7 @@ function makeRuntime(config) {
       child.stdin.end(input === undefined ? undefined : JSON.stringify(input));
     });
   }
-  return { run, sync };
+  return { run, sync, roleRun };
 }
 
 function contextMessage(text) {
@@ -116,6 +124,7 @@ export function apply(ctx, config = {}) {
     if (!result?.enabled || !result.context) return '';
     return ['Experience Strategy Harness is active for this project.', result.context,
       result.warning ?? '',
+      result.roles?.cases?.length ? 'Use experience_roles with the relevant case_id to read its role brief and template. Use experience_role_submit only for that active role; the project and case binding come from the host and case record. Waiting is an acceptable end state.' : '',
       'Use experience_context to retrieve the exact checkpoint_template; fill it with evidence from this task and submit it through experience_checkpoint. Do not invent observations, user approval, or verification results.',
       'A committed checkpoint records the review; it does not prove product quality or human acceptance.',
     ].filter(Boolean).join('\n\n');
@@ -270,4 +279,36 @@ export function apply(ctx, config = {}) {
       return runtime.run('checkpoint', binding(exec.agent).root, args, exec.signal);
     },
   }, { when: ({ agent }) => optedIn(agent) });
+  const roleScope = ({ agent }) => optedIn(agent) && existsSync(join(binding(agent).root, '.experience-strategy', 'engine.sqlite3'));
+  ctx.tools.register({
+    name: 'experience_roles',
+    description: 'List explicitly opened design cases; pass case_id for the next role brief, evidence contract, binding and revision. Read only.',
+    parameters: { type: 'object', additionalProperties: false, properties: { case_id: { type: 'string', minLength: 1 } } },
+    output,
+    async execute(args, exec) {
+      if (!exec.agent || !args || typeof args !== 'object' || Array.isArray(args) ||
+          Object.keys(args).some(k => k !== 'case_id') ||
+          ('case_id' in args && (typeof args.case_id !== 'string' || !args.case_id))) {
+        throw new Error('experience_roles accepts only an optional case_id and uses the host session project.');
+      }
+      return runtime.roleRun('context', binding(exec.agent).root, undefined, exec.signal, args.case_id);
+    },
+  }, { when: roleScope });
+  ctx.tools.register({
+    name: 'experience_role_submit',
+    description: 'Submit a single role output from a current role brief. Does not acknowledge a runtime checkpoint, authorize implementation, or collect user evidence.',
+    parameters: {
+      type: 'object', additionalProperties: false, required: ['case_id', 'binding', 'expected_revision', 'request_id', 'role', 'output'],
+      properties: {
+        case_id: { type: 'string' }, binding: { type: 'string' }, expected_revision: { type: 'integer' },
+        request_id: { type: 'string' }, role: { type: 'string', enum: ['strategist', 'critic', 'verifier', 'judge'] },
+        output: { type: 'object', additionalProperties: true },
+      },
+    },
+    output,
+    async execute(args, exec) {
+      if (!exec.agent || !args || typeof args !== 'object' || Array.isArray(args)) throw new Error('Role submission requires an agent and object arguments.');
+      return runtime.roleRun('submit', binding(exec.agent).root, args, exec.signal);
+    },
+  }, { when: roleScope });
 }

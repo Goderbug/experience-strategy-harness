@@ -2,12 +2,14 @@
 
 让设计 Agent 在工作过程中持续保留体验目标、历史取舍与验证状态，并在实际改动后进行检查。
 
-**MVP 0.2.0：Codex + DeepSeek Harness 执行层。** 方法协议、持久状态和宿主生命周期接入一起提供。原有 Markdown 仍可单独使用，但单文件模式依赖 Agent 自行执行。
+**0.3.0-alpha.1：体验引擎角色原型。** 在 v0.2 的宿主执行层上加入可恢复的设计案件：Controller 选择角色、Kernel 校验交付、宿主实际执行。新的角色流程仅在开启案件后生效。
+
+**先跑再读：** 从本实验版的源码目录执行 `python3 scripts/engine_demo.py --output /tmp/reading-role-demo-01`（新目录）。看完整演示的 `RESULTS.md` 和 `TRACE.json`，再按[角色设置与分层流程](references/role-engine.md)接入自己的项目。
 
 ## 开始
 
 ```sh
-git clone https://github.com/Goderbug/experience-strategy-harness.git
+git clone --branch v0.3.0-alpha.1 https://github.com/Goderbug/experience-strategy-harness.git
 cd experience-strategy-harness
 ```
 
@@ -17,7 +19,7 @@ cd experience-strategy-harness
 - **DeepSeek Harness / dsh**：[安装原生插件](adapters/deepseek/README.md)。接入原生 Agent 循环，复用宿主模型和工具，不另建 DeepSeek API 调用器。
 - **其他 Agent / 只上传文档**：[START-HERE.md](START-HERE.md) 与 [EXPERIENCE-HARNESS.md](EXPERIENCE-HARNESS.md)。这是手动触发的可移植降级模式。
 
-最新完整包见 [v0.2.0 Release](https://github.com/Goderbug/experience-strategy-harness/releases/tag/v0.2.0)。Python 核心只依赖标准库，要求 Python 3.9+；DSH 插件的宿主版本要求见适配器文档。
+角色原型见 [v0.3.0-alpha.1 Release](https://github.com/Goderbug/experience-strategy-harness/releases/tag/v0.3.0-alpha.1)，上一版执行层见 [v0.2.0 Release](https://github.com/Goderbug/experience-strategy-harness/releases/tag/v0.2.0)。Python 核心只依赖标准库，要求 Python 3.9+；DSH 插件的宿主版本要求见适配器文档。
 
 ## 执行层如何工作
 
@@ -66,6 +68,7 @@ python3 scripts/runtime.py context --root /path/to/project
 - `.experience-strategy/state.json`：目标、问题、证据、取舍与检查历史。保留 v0.1 状态协议兼容性。
 - `.experience-strategy/runtime.sqlite3`：执行状态、待检事件、续跑预算和确认回执。
 - `scripts/runtime.py context`：查看执行状态与可提交的 checkpoint 模板。
+- `.experience-strategy/engine.sqlite3`：显式开启 role case 时创建的案件、角色交付和回执。
 - [运行协议](references/runtime-protocol.md)：触发、确认、恢复与观察范围。
 - [分析状态协议](references/state-protocol.md)：证据类型、问题状态与持久化规则。
 

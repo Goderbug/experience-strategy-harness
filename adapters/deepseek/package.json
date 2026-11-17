@@ -1,12 +1,29 @@
 {
   "name": "dsh-experience-strategy-harness",
-  "version": "0.2.0",
+  "version": "0.3.0-alpha.1",
   "description": "Persistent experience checkpoints on the native DeepSeek Harness lifecycle",
   "type": "module",
   "main": "index.mjs",
-  "files": ["index.mjs", "cordis.patch.yml", "scripts/*.py", "SKILL.md", "EXPERIENCE-HARNESS.md", "references/*.md", "templates/*.md", "README.md", "UPSTREAM.md"],
-  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } },
-  "engines": { "node": ">=24.9.0", "dsh": "0.2.2-rc.3" },
+  "files": [
+    "index.mjs",
+    "cordis.patch.yml",
+    "scripts/*.py",
+    "SKILL.md",
+    "EXPERIENCE-HARNESS.md",
+    "references/*.md",
+    "templates/*.md",
+    "README.md",
+    "UPSTREAM.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "engines": {
+    "node": ">=24.9.0",
+    "dsh": "0.2.2-rc.3"
+  },
   "peerDependencies": {
     "@deepseek-ai/dsh-llm": "0.2.2-rc.3"
   },
