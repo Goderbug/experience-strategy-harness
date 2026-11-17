@@ -1,93 +1,59 @@
-# 体验引擎：角色设置与逐层运行
+# 体验引擎的角色与流程
 
-这是一个供外部 Agent 试用的角色流程。先明确要判断的那一句话，再选择验证方式；“质量不错”无法作为可执行主张。例如“在当前阅读列表中，第一次使用的人能不经提示把文章留到稍后”是行为主张；“此宽度顶栏不再显示测试图标”是产物主张。
+先确定这轮要交付什么。制作设计候选、检查已有产物、验证用户行为，各自有可完成的条件。一个问题可以同时处于“候选已做好”和“用户效果待验证”。
 
-## 角色如何设置
-
-在一个已启用 runtime 的项目中，宿主开启 case：给出项目体验目标、一个可被反驳的主张、主张类型、现场或模拟模式。如果决策还涉及方案取舍、已有反例或高返工成本，在 signals 中声明。已登记的问题可通过 concern_id 关联，冻结该问题、相关目标与取舍。该问题或相关目标后来变化会阻止继续提交；其他无关记录变化不影响本案。监测范围必须至少包含一个文件。项目工作目录与观察的产品范围必须一致；从另一个项目打开新 case 不会自动导入历史。
-
-| 顺序 / 角色 | 收到什么 | 必须交回什么 | 权力边界 |
+| 当前任务 | 开案字段 task_stage | 谁接手 | 完成条件 |
 |---|---|---|---|
-| 1 · Strategist 设计策略师 | 项目目标、冻结的主张、已有取舍 | 意图、备选、提案、关键假设、重开条件 | 提案不能自行批准。 |
-| 2 · Critic 设计质评者 | 同一主张、策略师的方案 | 有实际用户后果的反例及检验方法；没有实质异议也说明原因 | 异议不能否决方案，更不能当成用户观察。 |
-| 3 · Verifier 验证者 | 主张、需检验的分歧、项目实际可用工具和证据 | 执行方法、来源、适用范围、观察及不足、项目相对证据路径 | 可验证特定界面事实；缺少真人任务就不能确认用户行为。 |
-| 4 · Design Judge 设计裁决者 | 同一版本的方案、异议和核验结果 | 维持 / 修订 / 撤回 / 暂缓 / 交负责人，回应异议、写清取舍和下次触发条件 | 裁决只在本案范围内生效。不授权改产品、发布、自动关闭原 concern，也不能把模拟写成产品成效。 |
+| 做一版可检查的设计 | `create` | Design Critic → Execution → Measurement | 有候选文件、检查记录和已知限制。检查发现问题可以返回 Execution 再做一版。 |
+| 检查某项已有界面事实 | `artifact_check` | Verifier | 在指定版本和范围内记录事实；如声称可键盘操作，应实际使用键盘检查。 |
+| 回答一个关于人如何使用产品的问题 | `user_validation` | Strategist → Critic → User Evidence → Design Judge | 对照原假设检查实际用户证据，记录维持、修订、撤回、暂缓或交负责人的理由。 |
 
-角色是宿主可以承担的职责，不是四个一直运行的模型。出于成本考虑，单一宿主可以依次执行所有角色；历史中记录的是提交的职责，不能把这样的自审称作独立评审或多人共识。高风险价值取舍应交给实际负责人。
+创作期间 User Evidence 关闭。Measurement 可检查渲染、状态反馈和输入行为，“读者能否自行发现入口”单独保留。人数、研究方法、成效指标随验证问题确定。系统不预设招募任务。为兼容上一版，省略 `task_stage` 的底层调用延续原有产物或权衡路由；新宿主应显式传入阶段。创作演示默认使用 `create`。
 
-## 按层运行
+## 在自己的项目使用
 
-| 层 | 职责 | 交接验收 |
-|---|---|---|
-| Adapter · 宿主入口 | 在已配置项目的 Codex / DSH 会话中找回案件；入口和宿主工具见适配器说明。 | 宿主能说明自己正处理哪个项目、哪个 case、哪个角色；不因新角色无限续跑。 |
-| Kernel · 状态与证据 | 单独保存案件、项目绑定、文件版本、顺序、角色交付、幂等回执与证据文件指纹。 | 过期提交、越序角色、危险或失效证据不得推动阶段。 |
-| Controller · 调度规则 | 简单产物断言交 Verifier；行为主张或有权衡、反证、高返工成本时走四角色链。证据不足可等待、续接。 | 同一初始提案因证据不同可走向维持、修订或等待；不自动替人判断业务价值。 |
-| Capabilities · 实际工作 | 宿主按当前角色卡读材料、检查界面或收集已获授权的证据，把结构化输出交回 Kernel。 | 交付有范围、有依据。宿主没有数据时如实报告缺失；模型观点不替代真实参与者。 |
+先按 [项目初始化指南](../README.md) 建立体验目标和 runtime，把 watch 限定为不可变的本轮基线，例如 `baseline/**` 或相关源码。至少一个文件应当匹配。把候选和检查记录置于 watch 之外。同一案例持续绑定原始基线，产品源码发生变化则用新 case 复核。
 
-```mermaid
-flowchart TD
-    A["Adapter：宿主开启或恢复一个 case"] --> K["Kernel：项目绑定、快照、阶段与回执"]
-    K --> C{"Controller：下一步由谁执行？"}
-    C -->|"只需检查产物"| V["Verifier：观察与可复核证据"]
-    C -->|"行为或设计取舍"| S["Strategist：提案和假设"]
-    S --> R["Critic：可检验的反例"]
-    R --> V
-    V -->|"有取舍"| J["Design Judge：回应异议并裁决"]
-    V -->|"仅查事实"| F["限于该产物的验证结果"]
-    J --> O["维持、修订、撤回、等证据或交负责人"]
-    F --> P["Kernel：持久记录结果"]
-    O --> P
-    P -->|"有新证据，显式恢复"| C
-```
-
-图中每一条角色间的交接均经过 Kernel 的版本和角色校验。
-
-完整流转：宿主提出 case → Kernel 绑定版本 → Controller 返回下一角色卡 → 宿主执行并提交 → Kernel 校验并存档 → Controller 决定下一角色或停止。等待证据时下一角色为空；取得新证据后显式恢复到 Verifier，后续再裁决。交负责人表示需要产品取舍，不表示负责人已经批准。此版没有后台招募、遥测、发版或定时唤醒。
-
-## 从零跑通
-
-在仓库根目录，先试完全隔离的演示，不需要模型或 API key。output 必须是**尚不存在**的目录：
-
-```sh
-python3 scripts/engine_demo.py --output /tmp/reading-role-demo-01
-python3 scripts/engine.py context --root /tmp/reading-role-demo-01 --case-id card-screen
-```
-
-读输出目录的 RESULTS.md 看结局、TRACE.json 看每一角色交付。三个行为分支共享相同主张；其中一条经历“只有静态证据 → 等待 → 取得模拟反例 → 复查”。另有单一 Verifier 的静态断言案例。模拟路径和真实项目使用同一个程序，不能混合解释证据。
-
-## 用自己的项目
-
-按 README 初始化项目和 watch 范围。保存以下 JSON 为 open.json（在 watch 范围外），从仓库运行：
+保存为 open.json，并指定项目根。请写出本轮想改变或检查的具体对象。
 
 ```json
-{"case_id":"reading-save","goal":"让读者保留稍后想读的文章，维持列表清晰","claim":"首次用户能无提示地完成稍后读","claim_type":"behavior","mode":"live","signals":["tradeoff"]}
+{"case_id":"reading-save","task_stage":"create","goal":"在列表中保留想稍后阅读的文章","claim":"把行内收藏入口在默认态显现，同时保留文章来源和日期","claim_type":"artifact","mode":"live"}
 ```
 
 ```sh
 python3 scripts/engine.py open --root /path/to/project --input open.json
 python3 scripts/engine.py context --root /path/to/project --case-id reading-save
-```
-
-结果中的 next_role 和 brief 是本轮工作指令。宿主填好当前角色的 output，包装成 JSON 后调用：
-
-```json
-{"case_id":"reading-save","binding":"从该项目的 context 读取","expected_revision":0,"request_id":"为此次提交选用的唯一ID","role":"strategist","output":{"intent":"在列表中完成取舍","options":["维持当前入口","增加常驻入口"],"proposal":"维持当前入口","assumption":"首次用户能无提示完成稍后读","reopen_if":"用户已有保存意图却必须求助"}}
-```
-
-```sh
 python3 scripts/engine.py submit --root /path/to/project --input submit.json
 ```
 
-请把示例 revision 换成**刚读取的 revision**，binding 指示提交属于哪一个项目和案件，并非身份认证凭证。每次只执行返回的下一角色。静态 UI 检查要看运行产物，源码结论仅能指向源码；真人任务须使用获得授权的最小匿名证据。证据文件放项目内、观察范围外的独立目录；避免把整理观察笔记本身算作产品变更。冻结的产品版本变了时，重新复核，用新的 case 接替旧 case：在 open 输入中增加 supersedes（旧 case ID）并使用新 case_id。后继案件带回旧提案、裁决和重开条件作为历史；原来的证据不因此自动升级为当前版本的证据。
+读取返回的 `brief`、`next_role`、`candidate_dir` 和历史。每次提交带上刚读取的 `case_id`、`binding`、`expected_revision`，为这次请求指定 `request_id`，以及 `role`、`output`。重试同一次提交时沿用同一请求和内容。
 
-若进入 waiting_evidence：可以结束宿主，案件继续保留。等新的材料真的可用，再用 engine.py resume 提交 case_id、binding、expected_revision、request_id 和 reason。同一请求重试应使用相同 body；新工作用新 request_id。
+1. **Design Critic** 交付具体改动（`change`）、代价（`tradeoff`）和可观察的验收条件（`acceptance`）。例如把收藏星标常显，代价是增加列表视觉密度，验收时同时看入口与元数据。
+2. **Execution** 用宿主已经获准的能力制作可检查的候选，把文件写入返回的专属 `candidate_dir`，提交 `change`、项目相对 `candidate_refs` 与 `review_steps`。只发工单无法完成此步。若宿主只能分析，就如实保留待制作状态。
+3. **Measurement** 对提交的候选逐项检查。提交 `checks`（每项含 `check`、`result: pass|fail`、`observation`）、项目相对 `evidence_refs`、`limitations`，以及 `outcome: ready|rework`。把检查记录置于项目内，例如 `checks/interaction.json`。返工时另存新候选，留住被退回的版本。
+4. `candidate_ready` 表示该交付在记录的检查范围内已就绪。创作案件始终保留 `user_evidence=disabled` 和 `user_outcome=unverified`。决定是否采用，以及是否开展用户研究，由项目负责人按任务单独处理。
 
-## 两个相互独立的回执
+产物检查使用 `claim_type=artifact`。用户验证使用 `claim_type=behavior`；线上案例只有与问题匹配的实际用户任务材料才能支持或反驳行为主张。缺材料时可暂缓，取得新材料后显式 `resume`。模拟分支只能在 fixture 中演练，核验文件存在及内容指纹不能独立鉴定参与者身份。
 
-角色提交只推进这个案子的设计判断；原 runtime 的 checkpoint 仍用于“本轮文件变化已检查”。二者都不会把体验问题自动改为 resolved。若希望判断进入项目策略账本，由宿主取得真实的待检 template，把本案引用、选择、限制与下一触发条件写入自己的策略 checkpoint。用户验收保持单独记录。
+## 系统怎样持续运作
 
-## 外测试什么
+| 层 | 职责 |
+|---|---|
+| Adapter | Codex hooks、DeepSeek Harness 工具或 CLI 从项目状态读回阶段与下一角色。宿主退出后，下次工作继续。 |
+| Kernel | 持久保存项目、基线、交付、证据文件指纹及提交回执，拒绝错角色、过期提交和被调换的候选。可用 concern_id 关联本项目原策略记录。 |
+| Controller | 按当前任务选择接手人，根据已记录的检查结果结束、返工或等待新证据。 |
+| Capabilities | 宿主实际设计、实现、打开预览和检查交互，或分析已经获得的研究材料。同一宿主可以分步承担角色。 |
 
-从一个有历史取舍的任务开始，中途切换会话。检查新宿主能否说出原假设、Critic 的异议、还缺哪种证据。再改变产品版本或替换证据文件，检查旧结果是否被拒绝。最后比较有无这套流程时，有多少决定实际被维持、修订或撤回，以及多花了多少工具调用和时间。每阶段产物齐全是工程证据；决定有没有变好，仍需独立核对。
+角色提交只推进当前案件。runtime checkpoint 单独确认当前的产品文件变化已被检查。若产品基线改变，用新 ID 开案并以 `supersedes` 引用旧案；新案重新绑定材料。项目的采纳决定、用户表现和真实发布保持单独记录。CLI 使用 Python 3.9+ 及 POSIX 文件访问。
 
-适配范围：CLI 需 Python 3.9+；证据文件校验依赖 POSIX 的安全相对打开能力，Windows 未验证。本版可记录负责人待处理状态，外部审批仍由实际产品流程承担。
+## 在独立项目演练
+
+从完整源码目录执行。每个输出目录须尚不存在。演示使用通用阅读卡样本，可直接查看输出的 RESULTS.md、角色 TRACE.json 和引用的实际文件。
+
+```sh
+python3 scripts/engine_demo.py --output /tmp/reading-create-01
+python3 scripts/engine_demo.py --stage artifact_check --output /tmp/reading-inspect-01
+python3 scripts/engine_demo.py --stage user_validation --output /tmp/reading-validation-01
+```
+
+默认演示写出一个可操作 HTML，让保存控件从折叠菜单移到正文，并实际解析候选的文档结构。第三条命令使用模拟材料测试不同裁决和跨进程恢复。真实任务用 `engine.py open` 进入项目，切换宿主时用 `context` 查看当前阶段和既有交付。

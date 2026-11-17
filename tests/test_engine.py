@@ -230,6 +230,115 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(sum(not s["duplicate"] for s in submits),1)
         self.assertTrue(all(len(s["history"])==1 for s in submits))
 
+    def creative(self):
+        c = self.command("open", self.opening(task_stage="create", claim_type="behavior", mode="live"))
+        self.assertEqual(c["brief"]["basis"]["user_evidence"], "disabled")
+        self.assertEqual(c["brief"]["basis"]["candidate_dir"], c["candidate_dir"])
+        return self.advance(c, dict(change="Show bookmark star", tradeoff="More visible chrome",
+                                    acceptance="Bookmark toggles with keyboard and pointer"))
+
+    def candidate(self, c, filename="v1.html", content="<button>Save</button>"):
+        relative = c["candidate_dir"] + "/" + filename
+        path = self.root / relative
+        path.parent.mkdir(exist_ok=True, parents=True)
+        path.write_text(content)
+        return dict(change="Added a bookmark button", candidate_refs=[relative], review_steps="Open the preview and toggle")
+
+    def measurement(self, passing=True):
+        return dict(outcome="ready" if passing else "rework",
+                    checks=[dict(check="Toggle bookmark", result="pass" if passing else "fail",
+                                 observation="Keyboard activated button" if passing else "Keyboard did not toggle")],
+                    evidence_refs=["proof.txt"], limitations="Artifact only")
+
+    def test_creation_rework_preserves_candidate_history_and_user_status(self):
+        c = self.creative()
+        first = self.candidate(c)
+        c = self.advance(c, first)
+        self.assertEqual(c["history"][-1]["candidate_files"][0]["path"], first["candidate_refs"][0])
+        c = self.advance(c, self.measurement(False))
+        self.assertEqual(c["next_role"], "execution")
+        self.check_error("invalid_candidate", self.advance, c, first)
+        same_content = self.candidate(c, "v2.html")
+        self.check_error("invalid_candidate", self.advance, c, same_content)
+        updated = self.candidate(c, "v2.html", "<button aria-pressed='false'>Save</button>")
+        c = self.advance(c, updated)
+        c = self.advance(c, self.measurement())
+        self.assertFalse(c["stale_snapshot"])
+        self.assertEqual(c["user_outcome"], "unverified")
+        self.assertEqual(c["phase"], "candidate_ready")
+        self.assertEqual(c["history"][-1]["candidate_revision"], 4)
+        current = engine.get_context(NS(root=str(self.root), case_id="card"))
+        self.assertEqual(current["artifact_integrity"], {"candidate":"matches", "check_record":"matches"})
+        (self.root / "proof.txt").unlink()
+        self.assertEqual(engine.get_context(NS(root=str(self.root), case_id="card"))["artifact_integrity"]["check_record"], "unreadable")
+        summary = engine.summary_if_enabled(self.root)["cases"][0]
+        self.assertEqual(summary["task_stage"], "create")
+        self.assertEqual(summary["user_evidence"], "disabled")
+        successor = self.command("open", self.opening(case_id="later", supersedes="card", mode="live"))
+        handoff = successor["brief"]["basis"]["predecessor_handoff"]
+        self.assertEqual(handoff["candidate_files"][0]["path"], updated["candidate_refs"][0])
+        self.assertTrue(handoff["historical_only"])
+
+    def test_creation_rejects_fake_missing_and_changed_deliveries(self):
+        c = self.creative()
+        self.check_error("invalid_role_output", self.advance, c, dict(work_item="Run 5 users"))
+        made = self.candidate(c)
+        self.check_error("unsafe_candidate", self.advance, c, dict(made, candidate_refs=["src/header.txt"]))
+        self.check_error("unsafe_evidence", self.advance, c, dict(made, candidate_refs=[c["candidate_dir"]+"/missing.html"]))
+        for name in ("plan.md", "work_item.json", "research.todo"):
+            plan = self.candidate(c, name, "Run the task later.")
+            self.check_error("invalid_candidate", self.advance, c, plan)
+        empty = self.candidate(c, "empty.svg", "")
+        self.check_error("invalid_candidate", self.advance, c, empty)
+        c = self.advance(c, made)
+        self.check_error("invalid_measurement", self.advance, c,
+                         dict(self.measurement(), evidence_refs=made["candidate_refs"]))
+        (self.root / made["candidate_refs"][0]).write_text("changed while being reviewed")
+        self.check_error("stale_candidate", self.advance, c, self.measurement())
+        self.assertEqual(engine.get_context(NS(root=str(self.root),case_id="card"))["artifact_integrity"]["candidate"], "changed")
+        self.assertEqual(engine.summary_if_enabled(self.root)["cases"][0]["next_role"], "measurement")
+
+    def test_rework_preserves_delivered_dependencies_and_check_records(self):
+        c = self.creative()
+        first = self.candidate(c)
+        first["candidate_refs"].append(c["candidate_dir"] + "/style.css")
+        style = self.root / first["candidate_refs"][-1]
+        style.write_text("button {opacity: 0}")
+        c = self.advance(c, first)
+        c = self.advance(c, self.measurement(False))
+        next_version = self.candidate(c, "v2.html")
+        next_version["candidate_refs"].append(first["candidate_refs"][-1])
+        note = self.root / c["candidate_dir"] / "notes.md"
+        note.write_text("Only changed this explanation.")
+        next_version["candidate_refs"].append(note.relative_to(self.root).as_posix())
+        self.check_error("invalid_candidate", self.advance, c, next_version)
+        style.write_text("button {opacity: 1}")
+        self.check_error("changed_delivery", self.advance, c, next_version)
+        style.write_text("button {opacity: 0}")
+        revised_style = style.with_name("style-v2.css")
+        revised_style.write_text("button {opacity: 1}")
+        (self.root / next_version["candidate_refs"][0]).write_text('<link rel="stylesheet" href="style-v2.css"><button>Save</button>')
+        next_version["candidate_refs"][1] = revised_style.relative_to(self.root).as_posix()
+        c = self.advance(c, next_version)
+        proof = self.root / "proof.txt"
+        saved = proof.read_bytes()
+        proof.write_text("New observation")
+        self.check_error("changed_delivery", self.advance, c, self.measurement())
+        proof.write_bytes(saved)
+        (self.root / "proof-v2.txt").write_text("New observation")
+        c = self.advance(c, dict(self.measurement(), evidence_refs=["proof-v2.txt"]))
+        self.assertEqual(c["phase"], "candidate_ready")
+
+    def test_explicit_user_validation_pins_its_evidence(self):
+        c = self.command("open", self.opening(task_stage="user_validation", claim_type="behavior"))
+        c = self.advance(c, self.strategist())
+        c = self.advance(c, self.critic())
+        self.assertEqual(c["next_role"], "user_evidence")
+        c = self.advance(c, self.verifier("inconclusive"))
+        self.assertEqual(c["history"][-1]["evidence_files"][0]["path"], "proof.txt")
+        (self.root / "proof.txt").write_text("Changed observation")
+        self.check_error("stale_evidence", self.advance, c, self.judge("defer"))
+
     def test_database_copied_from_another_root_refused_on_context(self):
         self.command("open", self.opening())
         other=self.project("another")

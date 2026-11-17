@@ -54,6 +54,52 @@ class RolePolicyTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 policy.choose_route(*args)
 
+    def test_explicit_task_stages_route_by_intent(self):
+        for kind in ("artifact", "behavior"):
+            self.assertEqual(policy.choose_route(kind, ["tradeoff"], task_stage="create"), "creation")
+        self.assertEqual(policy.choose_route("artifact", ["tradeoff"], task_stage="artifact_check"), "direct")
+        self.assertEqual(policy.choose_route("behavior", task_stage="user_validation"), "tradeoff")
+        for stage, kind, route in [("artifact_check", "behavior", None), ("user_validation", "artifact", None),
+                                   ("create", "behavior", "tradeoff"), ("unknown", "artifact", None)]:
+            with self.assertRaises(ValueError):
+                policy.choose_route(kind, requested=route, task_stage=stage)
+
+    def test_creation_has_its_own_critic_and_resumes_rework_at_execution(self):
+        c = dict(case("creation"), task_stage="create")
+        self.assertEqual(policy.role_brief(c)["contract"], policy.role_card("critic", "create"))
+        self.assertNotEqual(policy.role_card("critic", "create"), policy.role_card("critic"))
+        record(c, "critic", {"change": "Show star", "tradeoff": "More chrome", "acceptance": "Click toggles star"})
+        with self.assertRaises(ValueError):
+            record(c, "execution", {"work_item": "Implement later"})
+        made = dict(change="Added button", candidate_refs=["candidates/abc/v1.html"], review_steps="Click it")
+        record(c, "execution", made)
+        check = dict(outcome="rework", checks=[dict(check="click", result="fail", observation="No change")],
+                     evidence_refs=["evidence/log.txt"], limitations="No human participants")
+        with self.assertRaises(ValueError):
+            record(c, "measurement", dict(check, outcome="ready"))
+        record(c, "measurement", check)
+        record(c, "execution", dict(made, candidate_refs=["candidates/abc/v2.html"]))
+        check["checks"] = [dict(check="click", result="pass", observation="aria-pressed changed")]
+        record(c, "measurement", dict(check, outcome="ready"))
+        self.assertEqual(policy.phase(c), "candidate_ready")
+        self.assertIsNone(policy.next_role(c))
+
+    def test_only_explicit_validation_activates_user_evidence(self):
+        c = case()
+        c["task_stage"] = "user_validation"
+        record(c, "strategist", STRATEGY)
+        record(c, "critic", CRITIC)
+        self.assertEqual(policy.next_role(c), "user_evidence")
+        with self.assertRaises(ValueError):
+            record(c, "user_evidence", ARTIFACT)
+        record(c, "user_evidence", MISSING)
+        record(c, "judge", dict(JUDGE, outcome="defer"))
+        c["history"].append({"role": "resume", "output": {"reason": "One authorized task observation"}})
+        self.assertEqual(policy.next_role(c), "user_evidence")
+        record(c, "user_evidence", HUMAN)
+        record(c, "judge", JUDGE)
+        self.assertEqual(policy.phase(c), "decided")
+
     def test_direct_assertion_does_not_run_critics_or_decide_a_design(self):
         for finding, status in [("supports", "verified"), ("refutes", "needs_owner"),
                                 ("inconclusive", "waiting_evidence")]:

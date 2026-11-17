@@ -57,6 +57,22 @@ class RoleHookTests(unittest.TestCase):
         self.assertEqual(before["revision"], after["revision"])
         self.assertNotEqual(before["context_key"], after["context_key"])
 
+    def test_creation_handoff_identifies_execution_without_enabling_user_research(self):
+        case = self.run_tool("scripts/engine.py", "open", "--root", str(self.root), data=dict(
+            case_id="card", goal="Save from the list", claim="Place Save next to the card",
+            claim_type="artifact", task_stage="create", mode="fixture"))
+        context = self.hook("UserPromptSubmit")["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("next: critic", context)
+        self.run_tool("scripts/engine.py", "submit", "--root", str(self.root), data=dict(
+            case_id="card", binding=case["binding"], expected_revision=case["revision"],
+            request_id="choose", role="critic", output=dict(
+                change="Make Save visible", tradeoff="One extra visible action",
+                acceptance="Check its presence in the default state.")))
+        context = self.hook("PreToolUse", tool_use_id="check", tool_name="Read")["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("next: execution", context)
+        self.assertIn('"user_evidence":"disabled"', context)
+        self.assertIn('"user_outcome":"unverified"', context)
+
     def test_role_store_error_does_not_hide_normal_checkpoint_or_invent_stop(self):
         (self.root / ".experience-strategy" / "engine.sqlite3").write_bytes(b"invalid database")
         # No turn-start event and no watched change: a role-only failure must not create a stop.

@@ -40,6 +40,43 @@ ROLE_CARDS = {
     },
 }
 
+CREATE_CRITIC = {
+    "question": "当前设计意图值得尝试哪一个小而可逆的改变？",
+    "inputs": ["本次意图与现有产物", "已有约束、已知摩擦与设计取舍"],
+    "outputs": ["具体改变", "接受的取舍", "能在产物上检查的验收条件"],
+    "authority": "为这一轮选择一个候选方案，交给 Execution 实际制作。",
+    "limits": "保留用户行为假设；创作阶段不招募参与者，不以缺少用户阻断制作。",
+}
+ROLE_CARDS.update({
+    "execution": {
+        "question": "这一轮实际做出了哪个可检查的候选？怎样打开或比对？",
+        "inputs": ["Critic 确定的改变、取舍与验收条件", "当前产品版本", "若返工，读取上次检查失败的原因"],
+        "outputs": ["已实现的改变", "项目内新候选文件", "打开、操作或比对方法"],
+        "authority": "按已授权范围制作可撤回的候选版本，保留原产品。",
+        "limits": "仅提交工单或计划不能完成此角色；不替用户确认体验效果。",
+    },
+    "measurement": {
+        "question": "在该候选的这个版本、状态和操作下，哪些验收条件实际成立？",
+        "inputs": ["本次候选及指纹", "Critic 的验收条件", "实际观察、操作或渲染记录"],
+        "outputs": ["逐项检查和观测结果", "实际检查证据", "局限", "候选就绪或返工"],
+        "authority": "检查产物，记录本次范围并决定候选是否需要返工。",
+        "limits": "仅作产物判断。User Evidence 保持关闭；用户效果仍为未验证。",
+    },
+    "user_evidence": {
+        "question": "真实使用者在本版本、这个任务下做了什么？无数据时还缺什么？",
+        "inputs": ["明确的用户验证任务、主张与异议", "获授权的匿名用户任务材料"],
+        "outputs": ["实际来源和任务", "观察结果或尚缺观察", "可复核引用、适用范围和限制"],
+        "authority": "在明确的用户验证阶段记录证据与缺口；按问题确定方法及参与范围。",
+        "limits": "不预设样本数，不招募未经授权的参与者，不从原型检查推断行为改善。",
+    },
+})
+
+
+def role_card(role, task_stage=None):
+    card = CREATE_CRITIC if role == "critic" and task_stage == "create" else ROLE_CARDS[role]
+    return copy.deepcopy(card)
+
+
 _TEMPLATES = {
     "strategist": {
         "intent": "[[用户任务与设计意图]]", "options": ["[[保留当前行为]]", "[[另一个可行方案]]"],
@@ -60,6 +97,15 @@ _TEMPLATES = {
         "critic_response": "[[具体采纳或拒绝哪条异议以及为什么，或说明无实质异议]]",
         "tradeoff": "[[接受的代价或仍待选择的冲突]]", "next_trigger": "[[再验证的条件或下一行动]]",
     },
+}
+_CREATE_OUTPUTS = {
+    "critic": {"change": "[[这一轮要做的可逆改变]]", "tradeoff": "[[选择的代价]]",
+               "acceptance": "[[可以在候选产物上检查的验收条件]]"},
+    "execution": {"change": "[[实际完成的改变]]", "candidate_refs": ["[[candidate_dir 下的候选入口文件]]"],
+                  "review_steps": "[[如何打开、操作或比对候选]]"},
+    "measurement": {"outcome": "ready", "checks": [{"check": "[[检查条件]]", "result": "pass",
+                    "observation": "[[实际执行的检查和观察]]"}], "evidence_refs": ["[[检查记录的相对路径]]"],
+                    "limitations": "[[本轮产物检查尚未覆盖的事项]]"},
 }
 _METHODS = {"artifact-check", "human-task", "agent-review"}
 _SOURCES = {"artifact", "human", "simulation", "none"}
@@ -107,7 +153,7 @@ def _refs(refs):
         raise ValueError("evidence_refs contains a duplicate")
 
 
-def choose_route(claim_type, signals=None, requested=None):
+def choose_route(claim_type, signals=None, requested=None, task_stage=None):
     """Deterministic choice at intake; human or host declares observable signals."""
     _enum(claim_type, {"artifact", "behavior"}, "claim_type")
     if signals is None:
@@ -118,6 +164,16 @@ def choose_route(claim_type, signals=None, requested=None):
         _enum(signal, {"tradeoff", "counterevidence", "high-rework"}, "signal")
     if len(set(signals)) != len(signals):
         raise ValueError("duplicate routing signal")
+    if task_stage is not None:
+        _enum(task_stage, {"create", "artifact_check", "user_validation"}, "task_stage")
+        route = {"create": "creation", "artifact_check": "direct", "user_validation": "tradeoff"}[task_stage]
+        if task_stage == "artifact_check" and claim_type != "artifact":
+            raise ValueError("artifact_check requires an artifact claim")
+        if task_stage == "user_validation" and claim_type != "behavior":
+            raise ValueError("user_validation requires a behavior claim")
+        if requested is not None and requested != route:
+            raise ValueError("requested route conflicts with this task_stage")
+        return route
     required = "tradeoff" if claim_type == "behavior" or signals else "direct"
     if requested is not None:
         _enum(requested, {"direct", "tradeoff"}, "requested route")
@@ -129,7 +185,9 @@ def choose_route(claim_type, signals=None, requested=None):
 def _case_shape(case):
     if not isinstance(case, dict) or not isinstance(case.get("history"), list):
         raise ValueError("case must provide a history list")
-    _enum(case.get("route"), {"tradeoff", "direct"}, "route")
+    _enum(case.get("route"), {"tradeoff", "direct", "creation"}, "route")
+    if (case["route"] == "creation") != (case.get("task_stage") == "create"):
+        raise ValueError("the creation route requires task_stage=create")
     _enum(case.get("claim_type"), {"artifact", "behavior"}, "claim_type")
     if case["route"] == "direct" and case["claim_type"] != "artifact":
         raise ValueError("a behavior claim requires the tradeoff route, not direct verification")
@@ -149,6 +207,21 @@ def _position(case):
     """Compute position from kernel-validated transitions; never call a model."""
     _case_shape(case)
     h = case["history"]
+    evidence_role = "user_evidence" if case.get("task_stage") == "user_validation" else "verifier"
+    if case["route"] == "creation":
+        if not h:
+            return "active", "critic"
+        last = h[-1]
+        if last["role"] == "critic":
+            return "active", "execution"
+        if last["role"] == "execution":
+            return "active", "measurement"
+        if last["role"] == "measurement":
+            if last["output"]["outcome"] == "rework":
+                return "active", "execution"
+            if last["output"]["outcome"] == "ready":
+                return "candidate_ready", None
+        raise ValueError("invalid creative role history")
     if not h:
         return "active", "strategist" if case["route"] == "tradeoff" else "verifier"
     entry = h[-1]
@@ -156,12 +229,12 @@ def _position(case):
         raise ValueError("invalid role history entry")
     role, out = entry.get("role"), entry["output"]
     if role == "resume":
-        return "active", "verifier"
+        return "active", evidence_role
     if role == "strategist":
         return "active", "critic"
     if role == "critic":
-        return "active", "verifier"
-    if role == "verifier":
+        return "active", evidence_role
+    if role == evidence_role:
         if case["route"] == "tradeoff":
             return "active", "judge"
         if not _eligible(case, out):
@@ -189,17 +262,23 @@ def phase(case):
 
 def role_brief(case):
     current_phase, role = _position(case)
+    creative = case.get("task_stage") == "create"
     instructions = {
         "active": "仅承担当前角色。主张是本案固定的待验命题；supports/refutes 针对它，而非整体产品好坏。改变命题应另开案件。",
         "waiting_evidence": "保留未决问题。得到新材料后显式恢复，由验证者重新观察；不自动重复执行。",
         "decided": "保存裁决理由、取舍和下次触发条件。作出决定不代表产品已实施、已发布或用户认可。",
         "needs_owner": "需负责人接手；查看反证或目标冲突，保留原观察。本状态不代表验收通过。",
+        "candidate_ready": "候选已完成本轮产物检查。用户效果保持未验证；产品采纳由原项目另行决定。",
         "verified": "只在记录的工件版本、场景和范围内通过。没有作出产品效果或用户接受判断。",
     }[current_phase]
+    if creative and current_phase == "active":
+        instructions = ("按当前角色推进创作。新文件放在 candidate_dir 中，候选及检查证据应在产品 watch 范围外。"
+                        "检查版本变化需重新交付。尚无用户时正常创作，用户效果保持未验证。")
     if case.get("mode") == "fixture":
         instructions += " 本案是受控模拟，所有结果只能用于演练流程，不能作为实际用户或产品效果证据。"
-    template = copy.deepcopy(_TEMPLATES[role]) if role else None
-    if role == "verifier":
+    templates = _CREATE_OUTPUTS if creative else _TEMPLATES
+    template = copy.deepcopy(templates["verifier" if role == "user_evidence" else role]) if role else None
+    if role in {"verifier", "user_evidence"}:
         instructions += (" finding 为 supports/refutes 时须附本项目相对路径。没有可用证据用 "
                          "unavailable + none + []。未能回答主张的截图可记录为 inconclusive。")
         if case["claim_type"] == "behavior":
@@ -209,10 +288,12 @@ def role_brief(case):
     if role == "judge":
         instructions += " 观察不足只能 defer/escalate；关键假设已被反驳，不能原样 keep。越权的价值冲突交负责人。"
     values = {}
-    if role == "verifier":
+    if role in {"verifier", "user_evidence"}:
         sources = _SOURCES if case.get("mode") == "fixture" else _SOURCES - {"simulation"}
         values = {"method": sorted(_METHODS), "provenance": sorted(sources),
                   "finding": sorted(_FINDINGS), "evidence_refs": "0–16 project-relative file paths"}
+    elif role == "measurement":
+        values = {"outcome": ["ready", "rework"], "result": ["pass", "fail"]}
     elif role == "judge":
         observed = case["history"][-1]["output"]
         allowed = set(_JUDGMENTS)
@@ -222,8 +303,37 @@ def role_brief(case):
             allowed.discard("keep")
         values = {"outcome": sorted(allowed)}
     return {"phase": current_phase, "role": role, "values": values,
-            "contract": copy.deepcopy(ROLE_CARDS[role]) if role else None,
+            "contract": role_card(role, case.get("task_stage")) if role else None,
             "template": template, "instructions": instructions}
+
+
+def _validate_creative(role, output):
+    _keys(output, _CREATE_OUTPUTS[role])
+    if role == "critic":
+        for field in ("change", "tradeoff", "acceptance"):
+            _text(output[field], field)
+    elif role == "execution":
+        _text(output["change"], "change")
+        _text(output["review_steps"], "review_steps")
+        _refs(output["candidate_refs"])
+        if not output["candidate_refs"]:
+            raise ValueError("execution requires at least one actual candidate file")
+    else:
+        _enum(output["outcome"], {"ready", "rework"}, "outcome")
+        _text(output["limitations"], "limitations")
+        _refs(output["evidence_refs"])
+        if not output["evidence_refs"]:
+            raise ValueError("measurement requires actual check evidence")
+        checks = output["checks"]
+        if not isinstance(checks, list) or not 1 <= len(checks) <= 32:
+            raise ValueError("record 1 to 32 executed artifact checks")
+        for check in checks:
+            _keys(check, ("check", "result", "observation"))
+            _text(check["check"], "check")
+            _text(check["observation"], "observation")
+            _enum(check["result"], {"pass", "fail"}, "check.result")
+        if output["outcome"] == "ready" and any(c["result"] == "fail" for c in checks):
+            raise ValueError("a failed acceptance check requires rework")
 
 
 def validate_output(case, role, output):
@@ -231,6 +341,8 @@ def validate_output(case, role, output):
     expected = next_role(case)
     if not isinstance(role, str) or role not in ROLE_CARDS or role != expected:
         raise ValueError("wrong role or inactive case: expected " + str(expected))
+    if case.get("task_stage") == "create":
+        return _validate_creative(role, output)
     if role == "strategist":
         _keys(output, _TEMPLATES[role])
         for field in ("intent", "proposal", "assumption", "reopen_if"):
@@ -252,8 +364,8 @@ def validate_output(case, role, output):
         else:
             _text(output["objection"], "objection")
             _text(output["consequence"], "consequence")
-    elif role == "verifier":
-        _keys(output, _TEMPLATES[role], ("task", "participant_scope"))
+    elif role in {"verifier", "user_evidence"}:
+        _keys(output, _TEMPLATES["verifier"], ("task", "participant_scope"))
         for field in ("scope", "observation", "limitations"):
             _text(output[field], field)
         for field in ("task", "participant_scope"):

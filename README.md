@@ -2,14 +2,14 @@
 
 让设计 Agent 在工作过程中持续保留体验目标、历史取舍与验证状态，并在实际改动后进行检查。
 
-**0.3.0-alpha.1：体验引擎角色原型。** 在 v0.2 的宿主执行层上加入可恢复的设计案件：Controller 选择角色、Kernel 校验交付、宿主实际执行。新的角色流程仅在开启案件后生效。
+**0.3.0-alpha.2 支持创作、产物检查和用户验证。** 做设计时，Critic 明确取舍，Execution 制作可检查的候选，Measurement 检查实际产物。用户效果单独保留为待验证。
 
-**先跑再读：** 从本实验版的源码目录执行 `python3 scripts/engine_demo.py --output /tmp/reading-role-demo-01`（新目录）。看完整演示的 `RESULTS.md` 和 `TRACE.json`，再按[角色设置与分层流程](references/role-engine.md)接入自己的项目。
+从本版源码根目录运行 `python3 scripts/engine_demo.py --output /tmp/reading-create-01`（新目录）。打开输出的 `RESULTS.md` 查看原版、可操作候选与检查记录。[在实际项目分阶段接入](references/role-engine.md)
 
 ## 开始
 
 ```sh
-git clone --branch v0.3.0-alpha.1 https://github.com/Goderbug/experience-strategy-harness.git
+git clone --branch v0.3.0-alpha.2 https://github.com/Goderbug/experience-strategy-harness.git
 cd experience-strategy-harness
 ```
 
@@ -19,7 +19,7 @@ cd experience-strategy-harness
 - **DeepSeek Harness / dsh**：[安装原生插件](adapters/deepseek/README.md)。接入原生 Agent 循环，复用宿主模型和工具，不另建 DeepSeek API 调用器。
 - **其他 Agent / 只上传文档**：[START-HERE.md](START-HERE.md) 与 [EXPERIENCE-HARNESS.md](EXPERIENCE-HARNESS.md)。这是手动触发的可移植降级模式。
 
-角色原型见 [v0.3.0-alpha.1 Release](https://github.com/Goderbug/experience-strategy-harness/releases/tag/v0.3.0-alpha.1)，上一版执行层见 [v0.2.0 Release](https://github.com/Goderbug/experience-strategy-harness/releases/tag/v0.2.0)。Python 核心只依赖标准库，要求 Python 3.9+；DSH 插件的宿主版本要求见适配器文档。
+角色原型见 [v0.3.0-alpha.2 Release](https://github.com/Goderbug/experience-strategy-harness/releases/tag/v0.3.0-alpha.2)，上一版执行层见 [v0.2.0 Release](https://github.com/Goderbug/experience-strategy-harness/releases/tag/v0.2.0)。Python 核心只依赖标准库，要求 Python 3.9+；DSH 插件的宿主版本要求见适配器文档。
 
 ## 执行层如何工作
 

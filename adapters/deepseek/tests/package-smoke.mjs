@@ -46,9 +46,10 @@ try {
   cli('runtime.py', ['setup', '--root', root, '--watch', 'src/**']);
   const roleCase = cli('engine.py', ['open', '--root', root], {
     case_id: 'package-case', goal: 'Verify the shipped case engine', claim: 'Fixture contains marker.',
-    claim_type: 'artifact', route: 'direct', mode: 'fixture',
+    claim_type: 'artifact', task_stage: 'create', mode: 'fixture',
   });
-  assert.equal(roleCase.next_role, 'verifier');
+  assert.equal(roleCase.next_role, 'critic');
+  assert.equal(roleCase.user_evidence, 'disabled');
   for (const service of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, NativeToolExecutor, AgentRegistry]) await ctx.plugin(service);
   await ctx.plugin(AgentLoop, { agents: [] });
   ctx.provide('workingDirectory', { get: () => root });
@@ -64,7 +65,7 @@ try {
       assert.match(JSON.stringify(options), /experience_checkpoint/);
       assert.match(JSON.stringify(options), /experience_roles/);
       assert.match(JSON.stringify(options), /package-case/);
-      assert.match(JSON.stringify(options), /next: verifier/);
+      assert.match(JSON.stringify(options), /next: critic/);
       yield { type: 'block-start', index: 0, blockType: 'text' };
       yield { type: 'text-delta', index: 0, text: 'Fixture intentionally leaves review pending.' };
       yield { type: 'block-end', index: 0, block: { type: 'text', text: 'Fixture intentionally leaves review pending.' } };

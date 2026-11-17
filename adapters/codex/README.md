@@ -74,7 +74,7 @@ python3 -m unittest discover -s adapters/codex -p 'test_*.py' -v
 
 原有 19 项测试覆盖事件协议、项目 opt-in、上下文注入、续跑限制、停止语义、故障提示、安装合并与卸载。其中两项通过真实子进程串联 `hook.py → runtime.py → SQLite / state.json`，验证文件变化、checkpoint 确认、中断后恢复；事件输入仍是 fixtures，不能证明你的 Codex 已信任或执行这些 hooks。
 
-另有 2 项角色原型测试覆盖开启案件后的角色发现、交接后上下文更新，以及角色状态出错时普通待检继续可见。合计 21 项。
+另有 2 项角色原型测试覆盖开启案件后的角色发现、交接后上下文更新，以及角色状态出错时普通待检继续可见。另有 1 项覆盖创作阶段的 Execution 交接与用户效果状态。当前合计 22 项。
 
 v0.2.0 发布时已使用本地 `codex-cli 0.162.0-alpha.2` 的真实 app-server `hooks/list` 检查：通过临时 `-c` 参数传入生成的 inline hooks，7 个事件均被解析和发现、无错误，状态均为 `untrusted`。这验证原生配置解析与发现，没有授予信任、执行 hooks 或调用模型，也没有验证项目配置层的信任。可信 hooks 下的真实模型旅程仍需要外测。完整记录以根目录 [VALIDATION.md](../../VALIDATION.md) 为准。
 
@@ -95,3 +95,5 @@ v0.2.0 发布时已使用本地 `codex-cli 0.162.0-alpha.2` 的真实 app-server
 在宿主终端读取 `python3 scripts/engine.py context --root PROJECT --case-id CASE`：读取角色卡、允许的输出及历史，再通过 `python3 scripts/engine.py submit --root PROJECT --input result.json` 交回一份角色结果。提交包含该个案的 `case_id`、`binding`、`expected_revision`、新的 `request_id`、`role`、`output`；不自行递增 revision，不把 claim 当已验证事实。角色是当前宿主执行的职责，不会启动四个模型，也不证明多个独立评审者。等待真人、等待负责人时保留状态，下次确有新证据再继续。
 
 角色交接与原有体验 checkpoint 是两件事：前者推进个案，后者确认普通待检事项。它们不互相确认，个案本身不会触发额外 Stop 或更改权限。
+
+创建新案时显式传 task_stage。创作 case 的 hooks 会带回下一角色和用户效果状态，Execution 在案内指定目录交付候选，Measurement 交回检查结果。用 context 读取每一步的模板。

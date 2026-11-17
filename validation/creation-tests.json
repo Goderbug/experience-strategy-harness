@@ -1,0 +1,44 @@
+{
+  "package_version": "0.3.0-alpha.2",
+  "date": "2026-11-17",
+  "platform": "macOS",
+  "automated_passed": {
+    "python_core": 65,
+    "codex_adapter": 22,
+    "deepseek_native_framework": 9,
+    "total": 96
+  },
+  "package_smoke": {
+    "ok": true,
+    "test": "installed-tarball-official-loader-native-loop",
+    "dsh": "0.2.2-rc.3",
+    "model": "deterministic-fixture",
+    "model_steps": 2,
+    "pending_preserved": true,
+    "role_discovered": true
+  },
+  "local_field_case": {
+    "scope": "offline candidate reconstructed from source and rendering of a reading list",
+    "role_sequence": [
+      "critic",
+      "execution",
+      "measurement"
+    ],
+    "user_evidence": "disabled",
+    "user_outcome": "unverified",
+    "phase": "candidate_ready",
+    "human_participants": 0,
+    "browser": "Chromium 147.0.7727.15",
+    "desktop_css_px": [
+      480,
+      320
+    ],
+    "touch_emulation_css_px": 360,
+    "limits": [
+      "two long source names ellipsized at 320px",
+      "no native host or real touch device test",
+      "no production persistence",
+      "user discoverability and benefit unmeasured"
+    ]
+  }
+}

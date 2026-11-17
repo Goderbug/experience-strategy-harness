@@ -297,3 +297,51 @@ test('one native session reads the current role brief, hands off to Critic, and 
     assert.equal(cli(runtimePath, ['context', '--root', root]).review_required, false);
   } finally { await cleanup(h, root); }
 });
+
+test('creation submits an actual candidate through the host role tool and exposes the separate outcome', async () => {
+  const root = await project();
+  let h;
+  try {
+    const engine = join(sourceRoot, 'scripts', 'engine.py');
+    const opened = cli(engine, ['open', '--root', root], {
+      case_id: 'create-card', goal: 'Place the save action on the card.', claim: 'Save is visible by default.',
+      claim_type: 'artifact', task_stage: 'create', mode: 'fixture',
+    });
+    const base = { case_id: 'create-card', binding: opened.binding };
+    const candidate = opened.candidate_dir + '/card.html';
+    h = await host(root, [
+      async options => {
+        assert.match(JSON.stringify(options), /next: critic/);
+        return toolResponse('design-tradeoff', 'experience_role_submit', {
+          ...base, role: 'critic', expected_revision: 0, request_id: 'first',
+          output: { change: 'Expose Save.', tradeoff: 'One more control on each card.', acceptance: 'Save is in the default markup.' },
+        });
+      },
+      async () => {
+        await mkdir(join(root, opened.candidate_dir), { recursive: true });
+        await writeFile(join(root, candidate), '<button>Save</button>');
+        return toolResponse('deliver-candidate', 'experience_role_submit', {
+          ...base, role: 'execution', expected_revision: 1, request_id: 'second',
+          output: { change: 'Placed Save on the card.', candidate_refs: [candidate], review_steps: 'Open the candidate HTML file.' },
+        });
+      },
+      async () => {
+        const markup = await readFile(join(root, candidate), 'utf8');
+        assert.equal(markup, '<button>Save</button>');
+        await writeFile(join(root, 'checked.txt'), 'Inspected the candidate markup: ' + markup);
+        return toolResponse('check-candidate', 'experience_role_submit', {
+          ...base, role: 'measurement', expected_revision: 2, request_id: 'third',
+          output: { outcome: 'ready', checks: [{ check: 'Save in markup', result: 'pass', observation: markup }],
+            evidence_refs: ['checked.txt'], limitations: 'Markup inspection only.' },
+        });
+      },
+      async () => toolResponse('normal-review', 'experience_checkpoint', filledCheckpoint(root)),
+      async () => textResponse('Candidate ready for inspection.'),
+    ]);
+    await run(h.agent);
+    const saved = cli(engine, ['context', '--root', root, '--case-id', base.case_id]);
+    assert.equal(saved.phase, 'candidate_ready');
+    assert.equal(saved.user_evidence, 'disabled');
+    assert.equal(saved.user_outcome, 'unverified');
+  } finally { await cleanup(h, root); }
+});

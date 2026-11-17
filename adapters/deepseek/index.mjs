@@ -301,7 +301,7 @@ export function apply(ctx, config = {}) {
       type: 'object', additionalProperties: false, required: ['case_id', 'binding', 'expected_revision', 'request_id', 'role', 'output'],
       properties: {
         case_id: { type: 'string' }, binding: { type: 'string' }, expected_revision: { type: 'integer' },
-        request_id: { type: 'string' }, role: { type: 'string', enum: ['strategist', 'critic', 'verifier', 'judge'] },
+        request_id: { type: 'string' }, role: { type: 'string', enum: ['strategist', 'critic', 'verifier', 'judge', 'execution', 'measurement', 'user_evidence'] },
         output: { type: 'object', additionalProperties: true },
       },
     },

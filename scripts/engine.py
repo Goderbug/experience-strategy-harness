@@ -21,6 +21,14 @@ VERSION = 1
 MAX_REFS = 16
 MAX_BYTES = 32 * 1024 * 1024
 LIST_LIMIT = 12
+# Local formats supported as a primary preview, editable design, source or patch.
+# Notes and data can accompany them, but cannot alone count as a design change.
+CANDIDATE_FORMATS = frozenset((
+    ".html", ".htm", ".svg", ".pdf", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".avif",
+    ".mp4", ".mov", ".webm", ".fig", ".sketch", ".pen", ".xd", ".psd", ".ai", ".blend",
+    ".css", ".scss", ".sass", ".less", ".js", ".jsx", ".mjs", ".ts", ".tsx", ".vue", ".svelte",
+    ".astro", ".qml", ".swift", ".kt", ".dart", ".xib", ".storyboard", ".py", ".patch", ".diff",
+))
 require = harness.require
 
 
@@ -71,6 +79,16 @@ def identity(db, root, project_id=None):
     return m["project_id"]
 
 
+def stage_fields(initial, binding):
+    task_stage = initial.get("task_stage")
+    if task_stage == "create":
+        return {"task_stage": task_stage, "candidate_dir": "candidates/" + binding,
+                "user_evidence": "disabled", "user_outcome": "unverified"}
+    if task_stage:
+        return {"task_stage": task_stage}
+    return {}
+
+
 def summary_if_enabled(root):
     """Bounded read-only host hint. Never hash files or replay state during host discovery."""
     root, _, runtime_path, path = paths(root)
@@ -91,6 +109,7 @@ def summary_if_enabled(root):
             item = {"case_id": row["id"], "revision": row["revision"], "phase": row["phase"],
                             "next_role": row["next_role"], "binding": row["binding"], "mode": data["mode"],
                             "snapshot": row["snapshot"], "claim": data["claim"][:220]}
+            item.update(stage_fields(data, row["binding"]))
             if row["phase"] in ("decided", "waiting_evidence", "needs_owner", "superseded"):
                 last = db.execute("SELECT record FROM steps WHERE case_id=? ORDER BY rev DESC LIMIT 1",
                                   (row["id"],)).fetchone()
@@ -113,10 +132,14 @@ def case_of(db, cid, root, project_id):
                 superseded_by=row["superseded_by"],
                 history=[json.loads(s["record"]) for s in db.execute(
                     "SELECT record FROM steps WHERE case_id=? ORDER BY rev", (cid,))])
+    case.update(stage_fields(case, row["binding"]))
     if case.get("supersedes"):
         previous = db.execute("SELECT id,snapshot,initial FROM cases WHERE id=?", (case["supersedes"],)).fetchone()
         handoff = {"historical_only": True, "case_id": previous["id"], "snapshot": previous["snapshot"],
                    "mode": json.loads(previous["initial"])["mode"], "proposal": None, "last_judgment": None}
+        previous_stage = json.loads(previous["initial"]).get("task_stage")
+        if previous_stage == "create":
+            handoff.update(task_stage=previous_stage, user_outcome="unverified", candidate_files=[], last_measurement=None)
         for step in db.execute("SELECT record FROM steps WHERE case_id=? ORDER BY rev DESC", (previous["id"],)):
             record = json.loads(step[0])
             out = record["output"]
@@ -124,7 +147,12 @@ def case_of(db, cid, root, project_id):
                 handoff["proposal"] = {k: out[k][:600] for k in ("proposal", "assumption", "reopen_if")}
             if record["role"] == "judge" and handoff["last_judgment"] is None:
                 handoff["last_judgment"] = {k: out[k][:600] for k in ("outcome", "rationale", "critic_response", "next_trigger")}
-            if handoff["proposal"] and handoff["last_judgment"]:
+            if record["role"] == "execution" and not handoff.get("candidate_files"):
+                handoff["candidate_files"] = record["candidate_files"]
+            if record["role"] == "measurement" and not handoff.get("last_measurement"):
+                handoff["last_measurement"] = {k: out[k] for k in ("outcome", "limitations")}
+            if (handoff["proposal"] and handoff["last_judgment"]
+                    or handoff.get("candidate_files") and handoff.get("last_measurement")):
                 break
         case["predecessor_handoff"] = handoff
     return case
@@ -141,6 +169,7 @@ def detail(case, current, current_concern, **extra):
     brief = policy.role_brief(case) if phase != "superseded" else None
     if brief is not None:
         brief["basis"] = {k: case[k] for k in ("project_id", "root", "snapshot", "goal", "claim", "claim_type", "mode", "concern_context")}
+        brief["basis"].update(stage_fields(case, case["binding"]))
         if case.get("predecessor_handoff"):
             brief["basis"]["predecessor_handoff"] = case["predecessor_handoff"]
     return dict(case, ok=True, enabled=True, phase=phase, next_role=role,
@@ -157,15 +186,18 @@ def text_field(v, label, limit=4000):
 
 def validate_open(value):
     harness.fields(value, ("case_id", "goal", "claim", "claim_type", "mode"),
-                   ("route", "signals", "concern_id", "supersedes"), label="open")
+                   ("task_stage", "route", "signals", "concern_id", "supersedes"), label="open")
     for key in ("case_id", "concern_id", "supersedes"):
         if key in value:
             text_field(value[key], key, 160)
     for key in ("goal", "claim"):
         text_field(value[key], key)
     harness.enum(value["claim_type"], {"artifact", "behavior"}, "claim_type")
+    if "task_stage" in value:
+        harness.enum(value["task_stage"], {"create", "artifact_check", "user_validation"}, "task_stage")
     try:
-        value["route"] = policy.choose_route(value["claim_type"], value.get("signals"), value.get("route"))
+        value["route"] = policy.choose_route(value["claim_type"], value.get("signals"), value.get("route"),
+                                             value.get("task_stage"))
     except ValueError as e:
         raise harness.HarnessError("invalid_route", str(e)) from e
     value["signals"] = sorted(value.get("signals") or [])
@@ -239,8 +271,14 @@ def add_case(path, root, project_id, config, value, concern, creating=False):
             db.execute("UPDATE cases SET superseded_by=?,phase='superseded',next_role=NULL,revision=revision+1,updated=? WHERE id=?",
                        (value["case_id"], harness.now(), previous["case_id"]))
         start = dict(value, history=[])
+        binding = uuid.uuid4().hex
+        if value.get("task_stage") == "create":
+            candidate_dir = root / "candidates" / binding
+            require(not candidate_dir.parent.is_symlink()
+                    and (not candidate_dir.parent.exists() or candidate_dir.parent.is_dir())
+                    and not candidate_dir.is_symlink() and not candidate_dir.exists(), "Candidate location must be new and local.", "unsafe_candidate")
         db.execute("INSERT INTO cases VALUES (?,?,?,?,?,?,?,?,NULL,?)",
-                   (value["case_id"], uuid.uuid4().hex, harness.canonical(value), snap, harness.canonical(concern),
+                   (value["case_id"], binding, harness.canonical(value), snap, harness.canonical(concern),
                     0, policy.phase(start), policy.next_role(start), harness.now()))
         return detail(case_of(db, value["case_id"], root, project_id), snap, concern, duplicate=False)
 
@@ -288,7 +326,7 @@ def proof(root, relative, remaining):
 
 def fingerprints(root, refs):
     harness.strings(refs, "evidence_refs", unique=True)
-    require(len(refs) <= MAX_REFS, "At most 16 evidence references per verifier result.")
+    require(len(refs) <= MAX_REFS, "At most 16 file references per submission.")
     results = []
     remaining = MAX_BYTES
     for ref in refs:
@@ -296,6 +334,82 @@ def fingerprints(root, refs):
         results.append(entry)
         remaining -= entry["bytes"]
     return results
+
+
+def check_reused_paths(case, files):
+    previous = {item["path"]: item for step in case["history"]
+                for group in ("candidate_files", "evidence_files") for item in step.get(group, ())}
+    for item in files:
+        require(item["path"] not in previous or previous[item["path"]] == item,
+                "Previously submitted paths must keep their bytes. Restore the old version and use a new path.",
+                "changed_delivery")
+
+
+def design_hashes(files):
+    return {item["sha256"] for item in files if Path(item["path"]).suffix.lower() in CANDIDATE_FORMATS}
+
+
+def record_candidate(case, root, output):
+    refs = output["candidate_refs"]
+    prefix = case["candidate_dir"] + "/"
+    require(all(ref.startswith(prefix) for ref in refs),
+            "Put the new candidate files under this case's candidate_dir.", "unsafe_candidate")
+    # Supplemental notes can travel with a candidate. Notes alone do not deliver a design.
+    require(Path(refs[0]).suffix.lower() in CANDIDATE_FORMATS,
+            "The candidate entry must be a local preview, design, source or patch in a supported format: "
+            + ", ".join(sorted(CANDIDATE_FORMATS)), "invalid_candidate")
+    files = fingerprints(root, refs)
+    require(all(f["bytes"] > 0 for f in files), "Candidate files cannot be empty.", "invalid_candidate")
+    old = [h for h in case["history"] if h["role"] == "execution"]
+    if old:
+        prior_paths = {f["path"] for h in old for f in h["candidate_files"]}
+        require(refs[0] not in prior_paths, "Save a new candidate entry point for this revision.", "invalid_candidate")
+        check_reused_paths(case, files)
+        last = old[-1]["candidate_files"]
+        require(fingerprints(root, [f["path"] for f in last]) == last,
+                "Restore the previous candidate and publish the revision under new paths.", "changed_delivery")
+        checks = case["history"][-1]["evidence_files"]
+        require(fingerprints(root, [f["path"] for f in checks]) == checks,
+                "Restore the previous check record and use a new path for changed observations.", "changed_delivery")
+        require(design_hashes(files) != design_hashes(last),
+                "Rework requires a changed design; notes alone cannot complete it.", "invalid_candidate")
+    return files
+
+
+def record_measurement(case, root, output):
+    last = case["history"][-1]
+    require(last["role"] == "execution", "No submitted candidate to check.", "invalid_transition")
+    refs = last["output"]["candidate_refs"]
+    require(not set(refs).intersection(output["evidence_refs"]),
+            "Provide a record of the checks separate from the candidate itself.", "invalid_measurement")
+    evidence = fingerprints(root, output["evidence_refs"])
+    check_reused_paths(case, evidence)
+    require(all(f["bytes"] > 0 for f in evidence), "Check records cannot be empty.", "invalid_measurement")
+    require(fingerprints(root, refs) == last["candidate_files"],
+            "Candidate changed after execution. Restore it or supersede this case.", "stale_candidate")
+    return evidence
+
+
+def creative_integrity(case, root):
+    """Recheck the latest deliveries on explicit case reads; host summary stays cheap."""
+    status = {"candidate": "not_submitted", "check_record": "not_submitted"}
+    for step in reversed(case["history"]):
+        if step["role"] == "measurement":
+            key, files = "check_record", step["evidence_files"]
+            if status[key] != "not_submitted":
+                continue
+        elif step["role"] == "execution":
+            key, files = "candidate", step["candidate_files"]
+        else:
+            continue
+        try:
+            current = fingerprints(root, [f["path"] for f in files])
+            status[key] = "matches" if current == files else "changed"
+        except (harness.HarnessError, OSError):
+            status[key] = "unreadable"
+        if key == "candidate":
+            break
+    return status
 
 
 def get_context(args):
@@ -308,7 +422,10 @@ def get_context(args):
         db.execute("BEGIN")
         pid = identity(db, root, state["project"]["id"])
         case = case_of(db, args.case_id, root, pid)
-        return detail(case, runtime.snapshot(root, config), bound_concern(state, case.get("concern_id")))
+        result = detail(case, runtime.snapshot(root, config), bound_concern(state, case.get("concern_id")))
+        if case.get("task_stage") == "create":
+            result["artifact_integrity"] = creative_integrity(case, root)
+        return result
 
 
 def advance(args):
@@ -355,10 +472,15 @@ def advance(args):
             except ValueError as e:
                 raise harness.HarnessError("invalid_role_output", str(e)) from e
             record = {"role": role, "output": value["output"]}
-            if role == "verifier":
+            if role == "execution":
+                record["candidate_files"] = record_candidate(case, root, value["output"])
+            if role == "measurement":
+                record["evidence_files"] = record_measurement(case, root, value["output"])
+                record["candidate_revision"] = case["revision"]
+            if role in {"verifier", "user_evidence"}:
                 record["evidence_files"] = fingerprints(root, value["output"]["evidence_refs"])
             if role == "judge":
-                latest = next(h for h in reversed(case["history"]) if h["role"] == "verifier")
+                latest = case["history"][-1]
                 current = fingerprints(root, latest["output"]["evidence_refs"])
                 require(current == latest["evidence_files"],
                         "Evidence bytes changed after verification; inspect and open a replacement case.", "stale_evidence")

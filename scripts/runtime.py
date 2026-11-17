@@ -240,7 +240,7 @@ def discover_roles(root, current_snap):
         return None, []
     try:
         import engine
-        from role_policy import ROLE_CARDS
+        from role_policy import role_card
         data = engine.summary_if_enabled(root)
         cases = data["cases"]
         if not cases:
@@ -254,10 +254,10 @@ def discover_roles(root, current_snap):
             lines.append(harness.canonical({"case_id": case["case_id"], "revision": case["revision"],
                                             "mode": case["mode"], "phase": case["phase"], "status": status,
                                             "claim": trim(case["claim"], 180),
-                                            **{key: case[key] for key in ("outcome","next_trigger") if key in case}}))
+                                            **{key: case[key] for key in ("outcome","next_trigger","task_stage","user_outcome","user_evidence") if key in case}}))
         current = cases[0]
         if current["next_role"] and current["snapshot"] == current_snap:
-            card = ROLE_CARDS[current["next_role"]]
+            card = role_card(current["next_role"], current.get("task_stage"))
             lines.append("Current role brief (" + current["case_id"] + "): " + card["question"] + " " + card["limits"])
         lines.extend(["Read the applicable case's role brief, permitted output, identifiers and history before acting: "
                       + prefix + " --case-id " + shlex.quote(cases[0]["case_id"])

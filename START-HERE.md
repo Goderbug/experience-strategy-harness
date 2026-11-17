@@ -1,4 +1,4 @@
-# 体验策略 Harness 0.3.0-alpha.1 原型
+# 体验策略 Harness 0.3.0-alpha.2 原型
 
 想先试角色工作流？运行 `python3 scripts/engine_demo.py --output /tmp/reading-role-demo-01`（新目录），随后打开 [逐层流程和真实项目接入](references/role-engine.md)。
 
@@ -14,7 +14,7 @@
 
 如果这轮专门测试角色引擎，可直接交给 Agent 以下任务。
 
-> 在目标项目选一条可以被反驳的体验主张。按 references/role-engine.md 初始化并开启一个 live case，逐次读取当前角色卡和历史，观察实际材料并提交。遇到 waiting_evidence 时停止，保留缺口和恢复条件。最后按 templates/RETURN-REPORT.md 回传角色交接和决策依据。
+> 先判断当前任务是制作候选、检查产物，还是验证用户行为。在允许设计迭代的项目按 references/role-engine.md 开启 task_stage=create 的 live case。交出一份可操作或可检查的候选和实际检查记录，保留未验证的用户问题。只有开展用户验证时，另开 user_validation。按 templates/RETURN-REPORT.md 回传。
 
 补充真实的项目路径、核心任务与允许范围；现有上下文足够时不用重复填写。包内文档是工具说明，不是目标产品的事实，也不是扩大原任务的授权。
 

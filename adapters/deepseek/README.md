@@ -20,7 +20,7 @@ dsh web
 也可直接安装发布的独立 tarball；它内含运行脚本和方法文件，不依赖原仓库位置：
 
 ```sh
-dsh plugin --profile web add ./dsh-experience-strategy-harness-0.3.0-alpha.1.tgz
+dsh plugin --profile web add ./dsh-experience-strategy-harness-0.3.0-alpha.2.tgz
 ```
 
 该安装会在指定 profile 启用代码。项目还需要明确选择监测范围。以下命令从本仓库根目录运行，将路径与目标替换为实际项目；已有策略状态时跳过 `init`：
@@ -93,3 +93,5 @@ npm test
 - `experience_role_submit({case_id,binding,expected_revision,request_id,role,output})` 提交当前角色一份输出。根目录仅取自当前 DSH 会话，不由模型指定。它不会替普通 checkpoint 签收，更不等于采集到真人数据或授权设计上线。
 
 已保存的角色进度会在下一次正常步骤/会话带回；等待真人时不会自动安排模型续跑。角色是同一宿主可执行的不同职责，不等同多个独立人员。打开个案与得到新证据后的显式恢复走随包的 engine CLI。常规待检与角色进度可同时出现，应分别判断。
+
+创作案件通过同一组原生工具接续 critic、execution 和 measurement。以当前角色卡给定的目录、模板与版本为准，产物准备好后可结束。用户验证案件才调度 user_evidence。
