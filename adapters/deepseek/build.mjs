@@ -5,8 +5,13 @@ import { fileURLToPath } from 'node:url';
 const destination = new URL('./scripts/', import.meta.url);
 const { version } = JSON.parse(await readFile(new URL('./package.json', import.meta.url), 'utf8'));
 await mkdir(destination, { recursive: true });
-for (const name of ['runtime.py', 'harness.py', 'engine.py', 'role_policy.py', 'engine_demo.py']) {
+for (const name of ['runtime.py', 'harness.py', 'engine.py', 'role_policy.py', 'engine_demo.py', 'status_ui.py', 'status_model.py']) {
   await copyFile(new URL(`../../scripts/${name}`, import.meta.url), new URL(name, destination));
+}
+const dashboard = new URL('./dashboard/', import.meta.url);
+await mkdir(dashboard, { recursive: true });
+for (const name of ['status.html', 'status.css', 'status.js']) {
+  await copyFile(new URL(`../../dashboard/${name}`, import.meta.url), new URL(name, dashboard));
 }
 for (const directory of ['references', 'templates']) {
   await mkdir(new URL(`./${directory}/`, import.meta.url), { recursive: true });

@@ -20,7 +20,7 @@ dsh web
 也可直接安装发布的独立 tarball；它内含运行脚本和方法文件，不依赖原仓库位置：
 
 ```sh
-dsh plugin --profile web add ./dsh-experience-strategy-harness-0.3.0-alpha.2.tgz
+dsh plugin --profile web add ./dsh-experience-strategy-harness-0.3.0-alpha.3.tgz
 ```
 
 该安装会在指定 profile 启用代码。项目还需要明确选择监测范围。以下命令从本仓库根目录运行，将路径与目标替换为实际项目；已有策略状态时跳过 `init`：
@@ -36,6 +36,10 @@ python3 scripts/runtime.py setup --root /absolute/path/to/project \
 从独立 tarball 解压目录运行相同 `scripts/` 命令也可完成 setup。随后在 DSH 中打开该项目根目录并新建或恢复会话。插件从 `ctx.workingDirectory.get(agent.session)` 取得项目；不使用宿主进程的默认目录，也不接受模型传入其他项目根目录。未 setup 的项目不会获得本插件的上下文、工具或强制续跑。
 
 第一次运行时检查实际行为：模型能看到体验目标和待检查事项，工具列表出现 `experience_context` / `experience_checkpoint`；读取项目的 `runtime.py context` 可查看尚未完成的队列。只看到配置层不能证明该项目已接入。
+
+## 查看项目状态
+
+从仓库根目录或独立 tarball 的 `package/` 目录运行 `python3 scripts/status_ui.py --root /absolute/path/to/project`，打开终端打印的本机地址。面板定期读取 DSH 已保存的项目记录，可在切换会话后查看交付。加 `--export /tmp/dsh-harness-status-01.html` 可核对创作案最近交付的候选与检查记录，并写出新的离线快照。
 
 ## 宿主如何持续介入
 

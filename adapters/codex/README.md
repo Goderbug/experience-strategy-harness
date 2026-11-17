@@ -39,6 +39,10 @@ python3 adapters/codex/install.py --root /path/to/project --uninstall
 
 这保留体验历史和运行数据库，也保留其他 hooks。不要同时安装项目 hooks 和下方的插件 hooks，以免重复接收生命周期通知。
 
+## 查看项目状态
+
+从 Harness 根目录运行 `python3 scripts/status_ui.py --root /path/to/project`，打开终端打印的本机地址。面板读取项目保存的待检、案件和角色交付。需要交接时，加 `--export /tmp/codex-harness-status-01.html` 写入一个新的离线快照。Codex 中的 hooks 安装与信任状态仍从宿主查看。
+
 ## 作为原生插件分发
 
 根目录 `plugin.json` 使用 Agent Plugins schema，通过 `extensions.com.openai.hooks` 引用 `hooks/hooks.json`。插件 hook 命令使用 Codex 提供的 `${PLUGIN_ROOT}`，因此安装目录改变不会破坏插件内引用。

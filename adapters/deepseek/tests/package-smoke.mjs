@@ -18,7 +18,12 @@ const patch = parse(await readFile(join(packageRoot, manifest.dsh.bundle.patch),
 assert.equal(patch.length, 1);
 const [row] = patch[0].insert;
 assert.equal(row.name, manifest.name);
-for (const path of ['scripts/runtime.py', 'scripts/harness.py', 'scripts/engine.py', 'scripts/role_policy.py', 'scripts/engine_demo.py', 'SKILL.md', 'references/state-protocol.md', 'references/runtime-protocol.md']) {
+const requiredFiles = [
+  'scripts/runtime.py', 'scripts/harness.py', 'scripts/engine.py', 'scripts/role_policy.py', 'scripts/engine_demo.py',
+  'scripts/status_ui.py', 'scripts/status_model.py', 'dashboard/status.html', 'dashboard/status.css', 'dashboard/status.js',
+  'SKILL.md', 'references/state-protocol.md', 'references/runtime-protocol.md',
+];
+for (const path of requiredFiles) {
   assert.ok((await readFile(join(packageRoot, path))).length > 0, `${path} must be packaged`);
 }
 const { Context } = await load('@deepseek-ai/cordis');
@@ -79,7 +84,19 @@ try {
   await handle.agent.whenIdle();
   assert.equal(provider.calls, 2, 'tarball-loaded hook must force exactly one additional real host step');
   assert.equal(cli('runtime.py', ['context', '--root', root]).review_required, true);
-  console.log(JSON.stringify({ ok: true, test: 'installed-tarball-official-loader-native-loop', dsh: '0.2.2-rc.3', model: 'deterministic-fixture', model_steps: provider.calls, pending_preserved: true, role_discovered: true }));
+  const exportPath = join(root, 'harness-status.html');
+  const snapshotRun = spawnSync(process.env.PYTHON ?? 'python3', [
+    join(packageRoot, 'scripts', 'status_ui.py'), '--root', root, '--export', exportPath,
+  ], { encoding: 'utf8' });
+  assert.equal(snapshotRun.status, 0, snapshotRun.stderr + snapshotRun.stdout);
+  const html = await readFile(exportPath, 'utf8');
+  const boot = html.match(/<script\b[^>]*\bid=["']boot["'][^>]*>([\s\S]*?)<\/script>/i);
+  assert.ok(boot, 'installed bundle must export embedded offline state');
+  const exported = JSON.parse(boot[1]);
+  assert.equal(exported.mode, 'snapshot');
+  assert.ok(exported.snapshot.projects.some(project =>
+    project.cases.some(item => item.id === 'package-case' && item.next_role === 'critic')));
+  console.log(JSON.stringify({ ok: true, test: 'installed-tarball-official-loader-native-loop', dsh: '0.2.2-rc.3', model: 'deterministic-fixture', model_steps: provider.calls, pending_preserved: true, role_discovered: true, dashboard_snapshot_verified: true }));
 } finally {
   await handle?.dispose();
   await ctx.fiber.dispose();

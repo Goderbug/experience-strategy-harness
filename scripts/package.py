@@ -8,7 +8,7 @@ import shutil
 import subprocess
 import zipfile
 
-VERSION = "0.3.0-alpha.2"
+VERSION = "0.3.0-alpha.3"
 ROOT = Path(__file__).resolve().parents[1]
 
 

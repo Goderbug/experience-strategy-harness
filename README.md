@@ -2,14 +2,14 @@
 
 让设计 Agent 在工作过程中持续保留体验目标、历史取舍与验证状态，并在实际改动后进行检查。
 
-**0.3.0-alpha.2 支持创作、产物检查和用户验证。** 做设计时，Critic 明确取舍，Execution 制作可检查的候选，Measurement 检查实际产物。用户效果单独保留为待验证。
+**0.3.0-alpha.3 加入只读状态工作台。** 面板按项目与案件展示角色进度、交付依据、待检工作和用户效果状态。 做设计时，Critic 明确取舍，Execution 制作可检查的候选，Measurement 检查实际产物。用户效果单独保留为待验证。
 
 从本版源码根目录运行 `python3 scripts/engine_demo.py --output /tmp/reading-create-01`（新目录）。打开输出的 `RESULTS.md` 查看原版、可操作候选与检查记录。[在实际项目分阶段接入](references/role-engine.md)
 
 ## 开始
 
 ```sh
-git clone --branch v0.3.0-alpha.2 https://github.com/Goderbug/experience-strategy-harness.git
+git clone --branch v0.3.0-alpha.3 https://github.com/Goderbug/experience-strategy-harness.git
 cd experience-strategy-harness
 ```
 
@@ -19,7 +19,27 @@ cd experience-strategy-harness
 - **DeepSeek Harness / dsh**：[安装原生插件](adapters/deepseek/README.md)。接入原生 Agent 循环，复用宿主模型和工具，不另建 DeepSeek API 调用器。
 - **其他 Agent / 只上传文档**：[START-HERE.md](START-HERE.md) 与 [EXPERIENCE-HARNESS.md](EXPERIENCE-HARNESS.md)。这是手动触发的可移植降级模式。
 
-角色原型见 [v0.3.0-alpha.2 Release](https://github.com/Goderbug/experience-strategy-harness/releases/tag/v0.3.0-alpha.2)，上一版执行层见 [v0.2.0 Release](https://github.com/Goderbug/experience-strategy-harness/releases/tag/v0.2.0)。Python 核心只依赖标准库，要求 Python 3.9+；DSH 插件的宿主版本要求见适配器文档。
+角色原型见 [v0.3.0-alpha.3 Release](https://github.com/Goderbug/experience-strategy-harness/releases/tag/v0.3.0-alpha.3)，上一版执行层见 [v0.2.0 Release](https://github.com/Goderbug/experience-strategy-harness/releases/tag/v0.2.0)。Python 核心只依赖标准库，要求 Python 3.9+；DSH 插件的宿主版本要求见适配器文档。
+
+## 打开状态工作台
+
+在解包的源码根目录运行以下命令，把 `--root` 指向要观察的项目根目录。刚跑完上面的演示时，可以直接指定 `/tmp/reading-create-01`。
+
+```sh
+python3 scripts/status_ui.py --root /path/to/project
+```
+
+打开终端打印的本机地址，也可以加 `--open` 让系统浏览器打开页面。默认使用可用端口，需要固定地址可加 `--port 8765`。重复传入 `--root` 可以在同一窗口切换项目。服务运行且页面打开时，页面定期读取项目保存的记录。按 Ctrl+C 结束服务。
+
+在项目内选一个案件，查看当前阶段、哪项职责待接手，以及已经提交的产物与依据。常规刷新读取已保存的状态，点击「刷新并核对」会重查监测范围内的文件，并复核创作案件最近交付的候选和检查记录。用户效果取自项目判断；页面的刷新时间只表示本次读取时间。
+
+要离线交接，指定一个新的 HTML 文件：
+
+```sh
+python3 scripts/status_ui.py --root /path/to/project --export /tmp/harness-status-01.html
+```
+
+导出时会执行同一次文件核对。双击 HTML 即可查看该时点的状态。快照包含所选项目的路径、主张、交付与证据引用，可在分享前核对内容。
 
 ## 执行层如何工作
 
@@ -72,7 +92,7 @@ python3 scripts/runtime.py context --root /path/to/project
 - [运行协议](references/runtime-protocol.md)：触发、确认、恢复与观察范围。
 - [分析状态协议](references/state-protocol.md)：证据类型、问题状态与持久化规则。
 
-这里的“持续”是**宿主运行期间的事件驱动介入，加上跨会话恢复**。宿主退出后没有后台轮询，也不会自动启动 Codex 或 dsh。分析状态中的 `online:false` 保留其原义：未配置独立后台观察器，不能用它判断 hooks 是否安装成功。
+这里的“持续”是**宿主运行期间的事件驱动介入，加上跨会话恢复**。宿主退出后，策略执行在下一次会话恢复。单独运行的状态面板可继续读取已保存的记录。分析状态中的 `online:false` 保留其原义：未配置独立后台观察器，不能用它判断 hooks 是否安装成功。
 
 ## 验证和外测
 

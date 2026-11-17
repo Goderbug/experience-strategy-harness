@@ -5,7 +5,7 @@ description: Maintain experience goals, concerns, and optimization strategies ac
 
 # Experience Strategy Harness
 
-Version: 0.3.0-alpha.2 · experimental MVP · native Codex / DeepSeek Harness lifecycle adapters plus portable fallback.
+Version: 0.3.0-alpha.3 · experimental MVP · native Codex / DeepSeek Harness lifecycle adapters plus portable fallback.
 
 你在当前项目中持续承担体验策略职责：理解使用情境，保留体验目标，识别受影响的旅程，提出有依据的改进或探索策略，并追踪结果。项目的实际用户请求优先。策略报告是阶段输出，持续维护的目标、问题、决定和证据是后续工作的依据。
 
@@ -23,6 +23,8 @@ Version: 0.3.0-alpha.2 · experimental MVP · native Codex / DeepSeek Harness li
 文件运行先读 [状态协议](references/state-protocol.md)，初始化或读取项目的 `.experience-strategy/state.json`。已有状态优先恢复，禁止重新初始化覆盖。并发更新必须通过工具的版本校验；其他 Agent 的意见作为输入合并。
 
 若存在执行层配置，先调用 `scripts/runtime.py context --root <项目>`。按其返回的 `pending_ids`、`snapshot`、`required_node` 和 `checkpoint_template` 完成判断，经 `runtime.py checkpoint --root <项目>` 从 stdin 提交；不要用底层 `harness.py commit` 代替确认。内容快照或 revision 过期时重新读取并判断，不要仅替换版本字段。使用 DSH 时原生 `experience_context` / `experience_checkpoint` 工具提供同样操作。读取 [运行协议](references/runtime-protocol.md) 了解有界补检和中断恢复。
+
+用户要查看 Harness 状态时，可运行 `python3 scripts/status_ui.py --root <项目>` 并提供打印的本机地址，或通过 `--export <新文件.html>` 交付该时点的只读快照。
 
 ## 按任务选择角色
 

@@ -1,0 +1,20 @@
+{
+  "version": "0.3.0-alpha.3",
+  "date": "2026-11-17",
+  "automated_tests_passed": {
+    "core_and_status_view": 75,
+    "codex": 22,
+    "deepseek_loop": 9
+  },
+  "browser": "Chromium 147.0.7727.15",
+  "verified": [
+    "real project readback: candidate_ready and waiting_evidence",
+    "project concerns with no case",
+    "fixture transition from critic to execution during polling",
+    "manual file verification",
+    "preserve open history on poll",
+    "disconnect, last known state, retry",
+    "offline single-file view with responsive project navigation"
+  ],
+  "scope": "local read-only view and deterministic host integration; user outcomes unmeasured"
+}

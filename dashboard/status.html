@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>状态工作台 · Experience Harness</title>
+  <style>{{STATUS_CSS}}</style>
+</head>
+<body>
+  <a class="skip" href="#main">跳到案件状态</a>
+  <div class="shell">
+    <aside id="sidebar" aria-label="项目与案件">
+      <header class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>Experience<br><b>Harness</b></span></header>
+      <div class="nav-heading"><h2>项目与案件</h2><span id="project-count" class="count"></span></div>
+      <nav id="project-nav" aria-label="选择项目与案件"></nav>
+      <div class="sidebar-foot"><span class="lock-icon" aria-hidden="true"></span>只读工作区</div>
+    </aside>
+    <div class="workspace">
+      <div class="topbar">
+        <div class="topbar-title"><button type="button" id="mobile-nav" aria-controls="sidebar" aria-expanded="false">项目与案件</button><span class="bar-title">状态工作台</span></div>
+        <div class="sync"><span id="connection" class="sync-state"></span><time id="updated"></time><button type="button" id="refresh" hidden>刷新并核对</button></div>
+      </div>
+      <div id="notice" role="status" aria-live="polite"></div>
+      <main id="main" tabindex="-1"></main>
+    </div>
+  </div>
+  <div id="feedback" class="announce" role="status" aria-live="polite"></div>
+  <script id="boot" type="application/json">{{STATUS_BOOT}}</script>
+  <script>{{STATUS_JS}}</script>
+</body>
+</html>

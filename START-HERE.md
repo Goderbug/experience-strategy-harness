@@ -1,6 +1,14 @@
-# 体验策略 Harness 0.3.0-alpha.2 原型
+# 体验策略 Harness 0.3.0-alpha.3 原型
 
 想先试角色工作流？运行 `python3 scripts/engine_demo.py --output /tmp/reading-role-demo-01`（新目录），随后打开 [逐层流程和真实项目接入](references/role-engine.md)。
+
+要查看上面这次演示的状态，从源码根目录运行：
+
+```sh
+python3 scripts/status_ui.py --root /tmp/reading-role-demo-01
+```
+
+在浏览器打开终端给出的地址，选中案件查看当前角色和交付。换成自己的项目路径即可查看实际工作；用 `--export /tmp/harness-status-01.html` 可导出新的离线快照。
 
 先选择运行方式：
 
